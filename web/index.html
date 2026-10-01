@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Katana Desktop</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============================================================ login -->
+<main id="login" hidden>
+  <form id="loginForm" class="logincard" autocomplete="on">
+    <img src="icon.png" alt="" class="loginlogo">
+    <h1>Katana Desktop</h1>
+    <p class="sub" id="loginSub">Log in with your Nonograms Katana account</p>
+    <label id="nickRow" hidden>Nickname<input name="nickname" autocomplete="nickname" maxlength="32"></label>
+    <label>Email<input name="email" type="email" autocomplete="username" required></label>
+    <label>Password<input name="password" type="password" autocomplete="current-password" required minlength="5"></label>
+    <div id="loginError" class="error" hidden></div>
+    <button type="submit" class="primary" id="loginSubmit">Log in</button>
+    <p class="switch" id="toRegister">No account yet? <a href="#" data-mode="register">Create one</a></p>
+    <p class="switch" id="toLogin" hidden>Already have an account? <a href="#" data-mode="login">Log in</a></p>
+  </form>
+</main>
+
+<!-- ============================================================ browse -->
+<header id="topbar" hidden>
+  <a href="#/" class="brand"><img src="icon.png" alt=""> Katana Desktop</a>
+  <nav>
+    <a href="#/" data-nav="browse">Browse</a>
+    <a href="#/continue" data-nav="continue">In progress</a>
+  </nav>
+  <div class="spacer"></div>
+  <div id="account"></div>
+  <div class="menuwrap">
+    <button id="userBtn" class="ghost"></button>
+    <div id="userMenu" class="menu" hidden>
+      <div class="menuhead" id="userEmail"></div>
+      <button data-act="sync">⟳ Sync now</button>
+      <button data-act="refresh">↓ Refresh puzzle list</button>
+      <button data-act="logout">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main id="browse" hidden>
+  <section id="continueStrip" hidden>
+    <div class="striphead"><h3>Continue playing</h3><a href="#/continue">All in progress →</a></div>
+    <div id="stripCards"></div>
+  </section>
+  <form id="filters" autocomplete="off">
+    <input type="search" name="q" placeholder="Search title or #id…">
+    <input type="search" name="author" placeholder="Author (exact)" class="narrow">
+    <select name="size">
+      <option value="0-999">Any size</option>
+      <option value="0-15">Small ≤15</option>
+      <option value="16-30">Medium 16–30</option>
+      <option value="31-50">Large 31–50</option>
+      <option value="51-999">Huge 51–80</option>
+      <option value="31-999">Large & huge (&gt;30)</option>
+    </select>
+    <select name="color">
+      <option value="all">B/W & color</option>
+      <option value="bw">Black & white</option>
+      <option value="color">Color</option>
+    </select>
+    <select name="status">
+      <option value="unsolved">Unsolved</option>
+      <option value="all">All</option>
+      <option value="solved">Solved</option>
+    </select>
+    <select name="sort">
+      <option value="newest">Newest</option>
+      <option value="rating">Best rated</option>
+      <option value="fans">Most loved</option>
+      <option value="easy">Easiest</option>
+      <option value="difficulty">Hardest</option>
+      <option value="big">Biggest</option>
+      <option value="small">Smallest</option>
+      <option value="oldest">Oldest</option>
+    </select>
+    <select name="rating">
+      <option value="0">Any rating</option>
+      <option value="3">★ 3+</option>
+      <option value="4">★ 4+</option>
+      <option value="4.5">★ 4.5+</option>
+    </select>
+    <span id="resultCount"></span>
+  </form>
+  <h3 id="contHead" hidden>In progress</h3>
+  <div id="cards"></div>
+  <div id="more"><button id="moreBtn" class="ghost" hidden>Load more</button></div>
+</main>
+
+<!-- ============================================================ play -->
+<main id="play" hidden>
+  <aside id="side">
+    <div class="sidetop">
+      <button id="backBtn" class="ghost icon" title="Back to list (Esc)">←</button>
+      <button id="collapseBtn" class="ghost icon" title="Collapse sidebar ( [ )">«</button>
+    </div>
+    <div class="full">
+      <div class="ptitle"><b id="pTitle"></b><span id="pSub"></span></div>
+      <div id="timer" title="Time spent">0:00</div>
+      <div class="sect">Colours</div>
+      <div id="palette"></div>
+      <div class="sect">Board</div>
+      <div class="btnrow">
+        <button id="undoBtn" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="redoBtn" title="Redo (Ctrl+Y)">↷ Redo</button>
+      </div>
+      <div class="btnrow">
+        <button id="zoomOut" title="Zoom out (−)">−</button>
+        <button id="fitBtn" title="Auto-fit to window (0)">Fit</button>
+        <button id="zoomIn" title="Zoom in (+)">+</button>
+      </div>
+      <label class="toggle" title="Strike through clue numbers whose block is finished"><input type="checkbox" id="autoClues"> Cross out solved numbers</label>
+      <label class="toggle" title="Fill the rest of a finished line with crosses"><input type="checkbox" id="autoCross"> Cross empty cells of finished lines</label>
+      <div class="btnrow">
+        <button id="checkBtn" title="Flash mistakes">Check</button>
+        <button id="resetBtn" title="Clear the board">Reset</button>
+      </div>
+      <details class="keys">
+        <summary>Controls</summary>
+        <dl>
+          <dt>Left / right click</dt><dd>fill / cross (drag paints a line)</dd>
+          <dt>Click a clue number</dt><dd>cross it out</dd>
+          <dt>Arrows, h j k l</dt><dd>move the cursor (Shift: 5 cells)</dd>
+          <dt>Space</dt><dd>cycle fill → cross → empty; hold and move to repeat</dd>
+          <dt>1–0, Shift+1–0</dt><dd>colours 1–10, 11–20</dd>
+          <dt>X</dt><dd>cross tool</dd>
+          <dt>Wheel, Ctrl+wheel</dt><dd>scroll, zoom</dd>
+          <dt>Middle drag</dt><dd>pan</dd>
+          <dt>0 · [ · Esc</dt><dd>fit · sidebar · back</dd>
+        </dl>
+      </details>
+    </div>
+    <div class="rail">
+      <div id="railTool" class="railtool" title="Current colour"></div>
+      <button id="railUndo" class="ghost icon" title="Undo">↶</button>
+      <button id="railRedo" class="ghost icon" title="Redo">↷</button>
+      <button id="railFit" class="ghost icon" title="Fit">⤢</button>
+      <div id="railTimer"></div>
+    </div>
+  </aside>
+  <div id="stage"><canvas id="board"></canvas></div>
+</main>
+
+<div id="win" hidden>
+  <div class="wincard">
+    <canvas id="winImg"></canvas>
+    <h2>Solved!</h2>
+    <p id="winText"></p>
+    <div class="row"><button id="winBack" class="primary">Back to list</button><button id="winStay" class="ghost">Look at it</button></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
