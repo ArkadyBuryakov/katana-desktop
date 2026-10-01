@@ -18,6 +18,16 @@ use wry::http::{Request, Response, header::CONTENT_TYPE};
 use store::Store;
 
 const SCHEME: &str = "katana";
+/// Where the custom scheme is served: WebView2 (Windows) maps custom schemes to
+/// `https://<scheme>.localhost`, WebKit (macOS/Linux) uses `<scheme>://localhost`.
+#[cfg(target_os = "windows")]
+const START_URL: &str = "https://katana.localhost/";
+#[cfg(not(target_os = "windows"))]
+const START_URL: &str = "katana://localhost/";
+
+fn is_app_url(url: &str) -> bool {
+    url.starts_with(START_URL) || url.starts_with("about:")
+}
 const INDEX: &[u8] = include_bytes!("../web/index.html");
 const APP_JS: &[u8] = include_bytes!("../web/app.js");
 const STYLE: &[u8] = include_bytes!("../web/style.css");
@@ -26,7 +36,6 @@ const ICON: &[u8] = include_bytes!("../web/icon.png");
 enum UserEvent {
     /// (request id, Ok(json) | Err(message))
     Reply(u64, Result<Value, String>),
-    Quit,
 }
 
 fn respond(status: u16, ctype: &str, body: Vec<u8>) -> Response<Cow<'static, [u8]>> {
@@ -121,7 +130,10 @@ fn open_external(url: &str) {
     }
     #[cfg(target_os = "macos")]
     let opener = "open";
-    #[cfg(not(target_os = "macos"))]
+    // explorer hands URLs to the default browser without cmd.exe quoting pitfalls
+    #[cfg(target_os = "windows")]
+    let opener = "explorer";
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let opener = "xdg-open";
     let _ = std::process::Command::new(opener).arg(url).spawn();
 }
@@ -297,8 +309,6 @@ fn main() -> wry::Result<()> {
         .build(&event_loop)
         .expect("failed to create window");
 
-    let quit_proxy = event_loop.create_proxy();
-    let quit_store = store.clone();
     let serve_store = store.clone();
     let ipc_store = store.clone();
     // keep the webview's own storage (localStorage etc.) inside our data dir
@@ -307,7 +317,7 @@ fn main() -> wry::Result<()> {
         .with_custom_protocol(SCHEME.into(), move |_id, req| serve(&serve_store, &req))
         .with_ipc_handler(move |req| handle_ipc(&ipc_store, &proxy, req.body()))
         .with_navigation_handler(|url| {
-            if url.starts_with(&format!("{SCHEME}://")) || url.starts_with("about:") {
+            if is_app_url(&url) {
                 return true;
             }
             open_external(&url);
@@ -318,7 +328,15 @@ fn main() -> wry::Result<()> {
             wry::NewWindowResponse::Deny
         })
         .with_devtools(cfg!(debug_assertions))
-        .with_url(format!("{SCHEME}://localhost/"));
+        .with_url(START_URL);
+    #[cfg(target_os = "windows")]
+    let builder = {
+        use wry::WebViewBuilderExtWindows;
+        // serve as https://katana.localhost and drop browser shortcuts (F5, Ctrl+P, Ctrl+F...)
+        builder
+            .with_https_scheme(true)
+            .with_browser_accelerator_keys(false)
+    };
 
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     let webview = builder.build(&window)?;
@@ -343,28 +361,13 @@ fn main() -> wry::Result<()> {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                // collect the open board from the page and save it synchronously before quitting
-                let store = quit_store.clone();
-                let proxy = quit_proxy.clone();
-                let asked = webview.evaluate_script_with_callback(
-                    "JSON.stringify(window.__beforeQuit ? window.__beforeQuit() : null)",
-                    move |res| {
-                        let v: Value = serde_json::from_str(&res).unwrap_or(Value::Null);
-                        let v = v
-                            .as_str()
-                            .and_then(|s| serde_json::from_str::<Value>(s).ok())
-                            .unwrap_or(v);
-                        if let Some(id) = v.get("id").and_then(Value::as_u64) {
-                            let _ = store.save_progress(id as u32, &v["data"]);
-                        }
-                        let _ = proxy.send_event(UserEvent::Quit);
-                    },
-                );
-                if asked.is_err() {
-                    *control_flow = ControlFlow::Exit;
-                }
+                // The page saves after every move, so there's nothing to flush. End the process
+                // directly: tearing the webview down (or calling into it) from here can stall on
+                // some WebView2 setups, which would leave a window that won't close. WebView2's
+                // helper processes exit on their own once their host is gone.
+                window.set_visible(false);
+                std::process::exit(0);
             }
-            Event::UserEvent(UserEvent::Quit) => *control_flow = ControlFlow::Exit,
             _ => {}
         }
     });

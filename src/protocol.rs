@@ -738,13 +738,12 @@ pub fn build_board(id: u32, png: &[u8], color: bool, colored_bg: bool) -> Result
         });
     }
     let mut bg = [255u8, 255, 255];
-    if colored_bg
-        && let Some(p) = px.iter().find(|p| p[3] <= 192) {
-            bg = [p[0], p[1], p[2]];
-            if bg.iter().all(|&c| c >= 248) {
-                bg = [255, 255, 255];
-            }
+    if colored_bg && let Some(p) = px.iter().find(|p| p[3] <= 192) {
+        bg = [p[0], p[1], p[2]];
+        if bg.iter().all(|&c| c >= 248) {
+            bg = [255, 255, 255];
         }
+    }
     let mut colors = vec![bg];
     let mut grid = Vec::with_capacity(px.len());
     for p in &px {

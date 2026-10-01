@@ -25,6 +25,11 @@ function call(cmd, args = {}) {
   });
 }
 
+// no browser context menu ("Reload", "Inspect"...) outside text fields
+document.addEventListener("contextmenu", (e) => {
+  if (!e.target.closest("input, textarea")) e.preventDefault();
+});
+
 function toast(msg, ms = 2600) {
   const t = $("#toast");
   t.textContent = msg;
@@ -717,9 +722,10 @@ const game = {
     this.save();
     onSolved();
   },
+  // saves right away (moves are discrete): the window may close at any moment
   scheduleSave() {
     clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => this.save(), 700);
+    this.saveTimer = setTimeout(() => this.save(), 0);
   },
   snapshot() {
     const marks = (arr) => Object.fromEntries(arr.map((s, i) => [i, [...s]]).filter(([, v]) => v.length));
@@ -1115,10 +1121,8 @@ setInterval(() => {
   if (view !== "play" || !game.p || game.solved || document.hidden) return;
   game.time++;
   showTime();
-  if (game.time % 15 === 0) game.save();
+  if (game.time % 5 === 0) game.save();
 }, 1000);
-// called by the native side when the window closes: hand over the board to save
-window.__beforeQuit = () => (game.p && !game.solved ? JSON.stringify({ id: game.p.id, data: game.snapshot() }) : null);
 document.addEventListener("visibilitychange", () => { if (document.hidden && game.p) game.save(); });
 
 // ---- open / win

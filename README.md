@@ -1,10 +1,10 @@
 # Katana Desktop
 
-A native macOS/Linux client for the user-created puzzles of
+A native Windows/macOS/Linux client for the user-created puzzles of
 [Nonograms Katana](https://nonograms-katana.com/), synced with your Katana account.
 
 It's a single Rust binary (~4 MB) built with [wry](https://github.com/tauri-apps/wry)/[tao](https://github.com/tauri-apps/tao).
-The UI runs in the system webview (WKWebView on macOS, WebKitGTK on Linux) and is embedded in the binary.
+The UI runs in the system webview (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) and is embedded in the binary.
 There's no local server: the page talks to Rust over IPC.
 
 ## Build & run
@@ -22,9 +22,26 @@ Variables: on Linux `PREFIX` (default `~/.local`) and `DESTDIR` for packaging, e
 - **Linux:** needs `webkit2gtk-4.1` and `gtk3` (`pacman -S webkit2gtk-4.1`, `apt install libwebkit2gtk-4.1-dev`).
 - **macOS:** needs the Xcode command line tools. `make install` runs `scripts/bundle-macos.sh` to build the `.app`.
   You can also run that script directly with `aarch64-apple-darwin` or `x86_64-apple-darwin` to build for a specific chip.
+- **Windows 10/11:** needs Rust from [rustup.rs](https://rustup.rs) with the MSVC build tools; WebView2 ships with Windows.
+  `make` isn't usual on Windows, so there's a PowerShell equivalent:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts\windows.ps1             # build
+  powershell -ExecutionPolicy Bypass -File scripts\windows.ps1 -Install    # %LOCALAPPDATA%\Programs, Start menu, Apps & features
+  powershell -ExecutionPolicy Bypass -File scripts\windows.ps1 -Uninstall  # or uninstall from Apps & features
+  ```
+  To build Windows releases from Linux: install `mingw-w64-gcc` and `nsis`, run
+  `rustup target add x86_64-pc-windows-gnu`, then `make windows`. That writes:
+  - `dist/KatanaDesktop-<version>-setup.exe`: an installer for your user only, no admin rights needed.
+    It adds a Start menu shortcut, an optional desktop shortcut, and an uninstaller in Apps & features.
+  - `dist/KatanaDesktop-<version>-portable.exe`: a single file that runs without installing anything.
+    It unpacks itself to a temp folder, which is removed when you close the app.
+
+  Both keep progress and login in `%LOCALAPPDATA%\katana-desktop`, so they share them with each other.
+  Neither is code-signed, so Windows SmartScreen may ask for confirmation on first run.
 
 Data (session, catalog cache, puzzle images, in-progress boards) lives in
-`~/.local/share/katana-desktop` on Linux or `~/Library/Application Support/katana-desktop` on macOS.
+`~/.local/share/katana-desktop` on Linux, `~/Library/Application Support/katana-desktop` on macOS
+and `%LOCALAPPDATA%\katana-desktop` on Windows.
 Set `KATANA_DATA` to use another directory.
 
 ## Playing
@@ -32,7 +49,7 @@ Set `KATANA_DATA` to use another directory.
 | | |
 | --- | --- |
 | Left / right click | fill / cross; drag paints a straight line (its length shows in the corner) |
-| Click a clue number | cross it out (finished numbers also grey out automatically) |
+| Click a clue number | cross it out (solved numbers are crossed out automatically; toggle in the sidebar) |
 | Arrows or `h j k l` | move the cursor over the board **and** the clue numbers; Shift moves 5 |
 | `Space` | cycle fill → cross → empty; hold it while moving to repeat the same mark; on a clue it crosses the number out |
 | `1`–`0`, `Shift`+`1`–`0` | colours 1–10, 11–20 |

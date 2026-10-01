@@ -84,7 +84,7 @@ impl Store {
         let dir = std::env::var_os("KATANA_DATA")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
-                dirs::data_dir()
+                dirs::data_local_dir() // same as data_dir on Linux/macOS; %LOCALAPPDATA% on Windows
                     .unwrap_or_else(|| PathBuf::from("."))
                     .join("katana-desktop")
             });
@@ -153,9 +153,10 @@ impl Store {
     fn device_id(&self) -> String {
         let path = self.dir.join("device_id");
         if let Ok(id) = fs::read_to_string(&path)
-            && id.trim().len() == 32 {
-                return id.trim().to_string();
-            }
+            && id.trim().len() == 32
+        {
+            return id.trim().to_string();
+        }
         let id = p::new_device_id();
         let _ = fs::write(&path, &id);
         id
@@ -511,7 +512,7 @@ impl Store {
                     };
                     [c[0], c[1], c[2], 255]
                 }
-                -1 => [214, 206, 192, 255], // crossed
+                -1 => [214, 206, 192, 255],                  // crossed
                 _ => [pal[0][0], pal[0][1], pal[0][2], 255], // unknown: the puzzle background
             };
             rgba.extend_from_slice(&px);

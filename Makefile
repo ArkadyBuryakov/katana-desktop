@@ -4,6 +4,8 @@
 #   make install         install for the current user (Linux: ~/.local, macOS: ~/Applications)
 #   make uninstall       remove what `make install` put in place (your data is kept)
 #   make run | test | clean
+#   make windows         cross-build dist/KatanaDesktop-<version>-setup.exe and -portable.exe
+#                        (needs mingw-w64-gcc, nsis and `rustup target add x86_64-pc-windows-gnu`)
 #
 # Linux system-wide:   make && sudo make install PREFIX=/usr/local
 # macOS elsewhere:     make install APPDIR=/Applications
@@ -19,9 +21,9 @@ BINDIR  := $(DESTDIR)$(PREFIX)/bin
 DATADIR := $(DESTDIR)$(PREFIX)/share
 APPDIR  ?= $(HOME)/Applications
 
-SOURCES := Cargo.toml Cargo.lock $(wildcard src/*.rs) $(wildcard web/*)
+SOURCES := Cargo.toml Cargo.lock build.rs $(wildcard src/*.rs) $(wildcard web/*)
 
-.PHONY: all build run test clean install uninstall bundle
+.PHONY: all build run test clean install uninstall bundle windows
 
 all: build
 
@@ -38,6 +40,40 @@ test:
 
 clean:
 	cargo clean
+	rm -rf dist
+
+# ---- Windows releases, cross-compiled with MinGW and packaged with NSIS:
+#   dist/KatanaDesktop-<version>-setup.exe     per-user installer (Start menu, Apps & features)
+#   dist/KatanaDesktop-<version>-portable.exe  single-file, runs without installing
+# MinGW builds load WebView2Loader.dll at runtime (MSVC builds link it statically),
+# so both packages carry the DLL next to the app.
+WIN_TARGET   := x86_64-pc-windows-gnu
+WIN_EXE      := target/$(WIN_TARGET)/release/$(NAME).exe
+WIN_STAGE    := target/windows-stage
+VERSION      := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+WIN_SETUP    := dist/KatanaDesktop-$(VERSION)-setup.exe
+WIN_PORTABLE := dist/KatanaDesktop-$(VERSION)-portable.exe
+NSIS_DEFS     = -V2 -DVERSION=$(VERSION) -DSRCDIR=$(abspath $(WIN_STAGE)) -DICON=$(abspath web/icon.ico) -DWIZARD=$(abspath installer/wizard.bmp)
+
+windows: $(WIN_SETUP) $(WIN_PORTABLE)
+
+$(WIN_EXE): $(SOURCES)
+	cargo build --release --target $(WIN_TARGET)
+
+$(WIN_STAGE)/$(NAME).exe: $(WIN_EXE)
+	rm -rf $(WIN_STAGE) && mkdir -p $(WIN_STAGE)
+	cp $(WIN_EXE) $(WIN_STAGE)/
+	cp "$$(ls target/$(WIN_TARGET)/release/build/webview2-com-sys-*/out/x64/WebView2Loader.dll | head -n1)" $(WIN_STAGE)/
+
+$(WIN_SETUP): $(WIN_STAGE)/$(NAME).exe installer/setup.nsi installer/wizard.bmp web/icon.ico
+	mkdir -p dist
+	makensis $(NSIS_DEFS) -DOUTFILE=$(abspath $@) installer/setup.nsi
+	@echo "Built $@"
+
+$(WIN_PORTABLE): $(WIN_STAGE)/$(NAME).exe installer/portable.nsi web/icon.ico
+	mkdir -p dist
+	makensis $(NSIS_DEFS) -DOUTFILE=$(abspath $@) installer/portable.nsi
+	@echo "Built $@"
 
 ifeq ($(UNAME),Darwin)
 
