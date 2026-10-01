@@ -14,7 +14,7 @@
   <form id="loginForm" class="logincard" autocomplete="on">
     <img src="icon.png" alt="" class="loginlogo">
     <h1>Katana Desktop</h1>
-    <p class="sub" id="loginSub">Log in with your Nonograms Katana account</p>
+    <p class="sub" id="loginSub">Log in with your Nonograms Katana account to sync your progress</p>
     <label id="nickRow" hidden>Nickname<input name="nickname" autocomplete="nickname" maxlength="32"></label>
     <label>Email<input name="email" type="email" autocomplete="username" required></label>
     <label>Password<input name="password" type="password" autocomplete="current-password" required minlength="5"></label>
@@ -22,6 +22,7 @@
     <button type="submit" class="primary" id="loginSubmit">Log in</button>
     <p class="switch" id="toRegister">No account yet? <a href="#" data-mode="register">Create one</a></p>
     <p class="switch" id="toLogin" hidden>Already have an account? <a href="#" data-mode="login">Log in</a></p>
+    <p class="switch"><a href="#/">Continue without an account</a></p>
   </form>
 </main>
 
@@ -38,9 +39,10 @@
     <button id="userBtn" class="ghost"></button>
     <div id="userMenu" class="menu" hidden>
       <div class="menuhead" id="userEmail"></div>
-      <button data-act="sync">⟳ Sync now</button>
+      <button data-act="login" data-guest>Log in or create account</button>
+      <button data-act="sync" data-user>⟳ Sync now</button>
       <button data-act="refresh">↓ Refresh puzzle list</button>
-      <button data-act="logout">Log out</button>
+      <button data-act="logout" data-user>Log out</button>
     </div>
   </div>
 </header>
@@ -91,7 +93,7 @@
   </form>
   <h3 id="contHead" hidden>In progress</h3>
   <div id="cards"></div>
-  <div id="more"><button id="moreBtn" class="ghost" hidden>Load more</button></div>
+  <div id="more"><button id="moreBtn" class="ghost" hidden>Load more</button><span class="spinner" title="Loading…"></span></div>
 </main>
 
 <!-- ============================================================ play -->
@@ -138,7 +140,7 @@
       </details>
     </div>
     <div class="rail">
-      <div id="railTool" class="railtool" title="Current colour"></div>
+      <div id="railPalette"></div>
       <button id="railUndo" class="ghost icon" title="Undo">↶</button>
       <button id="railRedo" class="ghost icon" title="Redo">↷</button>
       <button id="railFit" class="ghost icon" title="Fit">⤢</button>
@@ -148,12 +150,12 @@
   <div id="stage"><canvas id="board"></canvas></div>
 </main>
 
-<div id="win" hidden>
+<div id="modal" hidden>
   <div class="wincard">
-    <canvas id="winImg"></canvas>
-    <h2>Solved!</h2>
-    <p id="winText"></p>
-    <div class="row"><button id="winBack" class="primary">Back to list</button><button id="winStay" class="ghost">Look at it</button></div>
+    <canvas id="modalImg"></canvas>
+    <h2 id="modalTitle"></h2>
+    <p id="modalText"></p>
+    <div class="row" id="modalBtns"></div>
   </div>
 </div>
 <div id="toast" hidden></div>

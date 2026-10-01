@@ -40,7 +40,7 @@ test:
 
 clean:
 	cargo clean
-	rm -rf dist
+	rm -f dist/KatanaDesktop-*.exe  # only the build outputs: dist may be a symlink to a share
 
 # ---- Windows releases, cross-compiled with MinGW and packaged with NSIS:
 #   dist/KatanaDesktop-<version>-setup.exe     per-user installer (Start menu, Apps & features)

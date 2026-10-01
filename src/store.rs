@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -28,7 +29,9 @@ fn write_atomic(path: &PathBuf, data: &[u8]) -> Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    let tmp = path.with_extension("tmp");
+    // unique per call: the same image can be fetched by two requests at once
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let tmp = path.with_extension(format!("tmp{}", SEQ.fetch_add(1, Ordering::Relaxed)));
     fs::write(&tmp, data).map_err(|e| e.to_string())?;
     fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
@@ -180,10 +183,11 @@ impl Store {
         Ok(self.status())
     }
 
-    /// A different account must not inherit the previous one's solved list.
+    /// A different account must not inherit the previous one's solved list. Solves made
+    /// without an account are kept as pending, so the first sync uploads them.
     fn switch_account(&self, s: Session) {
         let prev = self.session.lock().unwrap().as_ref().map(|s| s.user_id);
-        if prev != Some(s.user_id) {
+        if prev.is_some_and(|p| p != s.user_id) {
             let mut a = self.account.lock().unwrap();
             *a = AccountState::default();
             self.save_account(&a);
@@ -415,10 +419,9 @@ impl Store {
             .take(per)
             .map(|p| {
                 let mut v = serde_json::to_value(p).unwrap();
-                let is_solved = solved.contains(&p.id);
-                v["solved"] = json!(is_solved);
+                v["solved"] = json!(solved.contains(&p.id));
                 v["progress"] = match progress.get(&p.id) {
-                    Some(pr) if !is_solved && !pr.solved => json!(pr.pct),
+                    Some(pr) if !pr.solved => json!(pr.pct),
                     _ => Value::Null,
                 };
                 v
@@ -481,6 +484,18 @@ impl Store {
                 solved: data.get("solved").and_then(Value::as_bool).unwrap_or(false),
             },
         );
+        let as_str: HashMap<String, &ProgressInfo> =
+            idx.iter().map(|(k, v)| (k.to_string(), v)).collect();
+        write_json(&self.dir.join("progress.json"), &as_str)
+    }
+
+    pub fn delete_progress(&self, id: u32) -> Result<()> {
+        let mut idx = self.progress.lock().unwrap();
+        idx.remove(&id);
+        match fs::remove_file(self.progress_path(id)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+            _ => {}
+        }
         let as_str: HashMap<String, &ProgressInfo> =
             idx.iter().map(|(k, v)| (k.to_string(), v)).collect();
         write_json(&self.dir.join("progress.json"), &as_str)

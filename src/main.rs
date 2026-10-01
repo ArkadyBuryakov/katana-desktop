@@ -110,6 +110,9 @@ fn dispatch(store: &Arc<Store>, cmd: &str, args: &Value) -> Result<Value, String
         "saveProgress" => store
             .save_progress(arg_u32(args, "id")?, &args["data"])
             .map(|_| json!(true)),
+        "deleteProgress" => store
+            .delete_progress(arg_u32(args, "id")?)
+            .map(|_| json!(true)),
         "solved" => {
             let secs = args.get("seconds").and_then(Value::as_i64).unwrap_or(0) as i32;
             store
@@ -314,7 +317,12 @@ fn main() -> wry::Result<()> {
     // keep the webview's own storage (localStorage etc.) inside our data dir
     let mut web_context = wry::WebContext::new(Some(store.dir().join("webview")));
     let builder = WebViewBuilder::new_with_web_context(&mut web_context)
-        .with_custom_protocol(SCHEME.into(), move |_id, req| serve(&serve_store, &req))
+        // images may have to be downloaded first: answer off the UI thread so the
+        // window (and IPC replies, which go through the event loop) never stall on them
+        .with_asynchronous_custom_protocol(SCHEME.into(), move |_id, req, responder| {
+            let store = serve_store.clone();
+            std::thread::spawn(move || responder.respond(serve(&store, &req)));
+        })
         .with_ipc_handler(move |req| handle_ipc(&ipc_store, &proxy, req.body()))
         .with_navigation_handler(|url| {
             if is_app_url(&url) {

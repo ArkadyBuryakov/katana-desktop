@@ -62,6 +62,10 @@ Set `KATANA_DATA` to use another directory.
 
 ## What syncs
 
+An account is optional. Without one, solves and boards are kept on this device only. When you log in,
+solves made as a guest are uploaded to the account. Logging out clears the local list of solved
+puzzles; in-progress boards stay on the device.
+
 The Katana account only stores *which* puzzles are solved, plus total score and play time, and that
 is what gets synced in both directions. Half-finished boards are saved locally on each device, the same
 as in the official apps.

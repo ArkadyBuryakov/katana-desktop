@@ -38,6 +38,51 @@ function toast(msg, ms = 2600) {
   toast.h = setTimeout(() => (t.hidden = true), ms);
 }
 
+// ------------------------------------------------------------------ modal
+// One dialog for everything: resolves with the chosen button's value, or null when dismissed.
+let modalDone = null;
+function modal({ title, text = "", draw = null, buttons }) {
+  closeModal(null);
+  $("#modalTitle").textContent = title;
+  $("#modalText").textContent = text;
+  const img = $("#modalImg");
+  img.hidden = !draw;
+  if (draw) draw(img);
+  const row = $("#modalBtns");
+  row.innerHTML = "";
+  for (const b of buttons) {
+    const el = document.createElement("button");
+    el.textContent = b.label;
+    el.className = b.cls || "ghost";
+    el.onclick = () => closeModal(b.value);
+    row.appendChild(el);
+  }
+  $("#modal").hidden = false;
+  row.querySelector(".primary, .danger")?.focus();
+  return new Promise((resolve) => (modalDone = resolve));
+}
+function closeModal(value) {
+  $("#modal").hidden = true;
+  const done = modalDone;
+  modalDone = null;
+  done?.(value);
+}
+$("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(null); });
+window.addEventListener("keydown", (e) => {
+  if ($("#modal").hidden || e.key !== "Escape") return;
+  e.stopImmediatePropagation();
+  closeModal(null);
+}, true);
+
+/** Size a canvas so a w×h picture gets whole-pixel cells as big as the window allows. */
+function pictureCanvas(cv, w, h) {
+  const s = Math.max(1, Math.floor(Math.min(innerWidth * 0.8 / w, innerHeight * 0.65 / h)));
+  cv.width = w * s; cv.height = h * s;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  return { c, s };
+}
+
 // ------------------------------------------------------------------ status / account
 let status = {};
 async function refreshStatus() {
@@ -45,15 +90,19 @@ async function refreshStatus() {
   const a = $("#account");
   let html = `${status.solved_count} solved`;
   if (status.score != null) html += ` · ${status.score.toLocaleString()} pts`;
-  if (status.pending) html += ` · ${status.pending} to sync`;
-  if (status.sync_error) html += ` · <span class="err" title="${esc(status.sync_error)}">sync error</span>`;
+  if (status.logged_in) {
+    if (status.pending) html += ` · ${status.pending} to sync`;
+    if (status.sync_error) html += ` · <span class="err" title="${esc(status.sync_error)}">sync error</span>`;
+  } else html += " · not synced";
   html += "<br>";
   if (status.catalog_loading && !status.catalog_count) html += "downloading puzzle list…";
   else if (status.catalog_error) html += `<span class="err">${esc(status.catalog_error)}</span>`;
   else html += `${status.catalog_count.toLocaleString()} puzzles`;
   a.innerHTML = html;
-  $("#userBtn").textContent = (status.nickname || "Account") + " ▾";
-  $("#userEmail").textContent = status.email || "";
+  $("#userBtn").textContent = (status.logged_in ? status.nickname || "Account" : "Guest") + " ▾";
+  $("#userEmail").textContent = status.logged_in ? status.email || "" : "Progress is kept on this device only";
+  document.querySelectorAll("#userMenu [data-user]").forEach((b) => (b.hidden = !status.logged_in));
+  document.querySelectorAll("#userMenu [data-guest]").forEach((b) => (b.hidden = status.logged_in));
   if (!status.catalog_count && !status.catalog_error) setTimeout(refreshStatus, 1000);
   else if (view === "browse" && cardsWaitingForCatalog) { cardsWaitingForCatalog = false; loadCards(true); }
   return status;
@@ -65,7 +114,9 @@ document.addEventListener("click", () => ($("#userMenu").hidden = true));
 $("#userMenu").onclick = async (e) => {
   const act = e.target.dataset.act;
   if (!act) return;
-  if (act === "sync") {
+  if (act === "login") {
+    location.hash = "#/login";
+  } else if (act === "sync") {
     try {
       const r = await call("sync");
       toast(r.pushed ? `Synced, uploaded ${r.pushed} solved` : "Synced");
@@ -84,8 +135,8 @@ $("#userMenu").onclick = async (e) => {
       await call("logout", { force: true });
     }
     status = await refreshStatus();
-    location.hash = "#/";
-    route();
+    toast("Logged out");
+    if (location.hash === "#/" || !location.hash) route(); else location.hash = "#/";
   }
 };
 
@@ -99,7 +150,8 @@ function setLoginMode(m) {
   $("#toRegister").hidden = reg;
   $("#toLogin").hidden = !reg;
   $("#loginSubmit").textContent = reg ? "Create account" : "Log in";
-  $("#loginSub").textContent = reg ? "Create a Nonograms Katana account" : "Log in with your Nonograms Katana account";
+  $("#loginSub").textContent = reg ? "Create a Nonograms Katana account to sync your progress"
+    : "Log in with your Nonograms Katana account to sync your progress";
   $("#loginForm").elements.password.autocomplete = reg ? "new-password" : "current-password";
   $("#loginError").hidden = true;
 }
@@ -116,7 +168,8 @@ $("#loginForm").onsubmit = async (e) => {
     await call(loginMode, args);
     f.password.value = "";
     status = await refreshStatus();
-    route();
+    toast(status.sync_error ? "Logged in, but sync failed: " + status.sync_error : `Logged in as ${status.nickname || status.email}`);
+    location.hash = "#/";
   } catch (err) {
     $("#loginError").textContent = err.message;
     $("#loginError").hidden = false;
@@ -129,12 +182,14 @@ $("#loginForm").onsubmit = async (e) => {
 let view = null;
 let mode = "browse";
 function route() {
-  if (!status.logged_in) {
+  closeModal(null);
+  const h = location.hash || "#/";
+  if (h.startsWith("#/login")) {
+    if (status.logged_in) { location.hash = "#/"; return; }
     game.close();
     showView("login");
     return;
   }
-  const h = location.hash || "#/";
   const m = h.match(/^#\/p\/(\d+)/);
   document.querySelectorAll("[data-nav]").forEach((a) => a.classList.remove("on"));
   if (m) {
@@ -188,14 +243,21 @@ function queryArgs() {
   return { q: f.q, author: f.author, color: f.color, status: f.status, sort: f.sort, min, max, rating: f.rating, page, per: 60 };
 }
 
+function setLoading(on) {
+  loading = on;
+  $("#more").classList.toggle("busy", on);
+}
 async function loadCards(reset) {
-  if (reset) { page = 0; $("#cards").innerHTML = ""; $("#browse").scrollTop = 0; }
+  if (reset) { page = 0; $("#cards").innerHTML = ""; $("#browse").scrollTop = 0; $("#moreBtn").hidden = true; }
   const token = ++loadToken;
-  loading = true;
+  setLoading(true);
   let res;
-  try { res = await call("catalog", queryArgs()); } catch (e) { toast(e.message); loading = false; return; }
+  try { res = await call("catalog", queryArgs()); } catch (e) {
+    if (token === loadToken) { toast(e.message); setLoading(false); }
+    return;
+  }
   if (token !== loadToken) return;
-  loading = false;
+  setLoading(false);
   const box = $("#cards");
   if (reset && !res.items.length) {
     const empty = !status.catalog_count;
@@ -219,20 +281,23 @@ new IntersectionObserver((e) => {
   if (e[0].isIntersecting && !loading && !$("#moreBtn").hidden) { page++; loadCards(false); }
 }, { root: $("#browse"), rootMargin: "400px" }).observe($("#more"));
 
+const cardData = new Map(); // id -> the catalog item each rendered card was made from
 function stars(v) { return v ? v.toFixed(1) : "–"; }
 function cardHtml(p) {
   const scale = 110 / Math.max(p.w, p.h);
   const w = Math.round(p.w * scale), h = Math.round(p.h * scale);
   const started = p.progress != null;
-  let thumb;
-  if (p.solved) thumb = `<img src="image/${p.id}.png" width="${w}" height="${h}" loading="lazy" alt="">`;
-  // the player's own partial board (never the solution)
-  else if (started) thumb = `<img src="thumb/${p.id}.png?v=${Date.now()}" width="${w}" height="${h}" loading="lazy" alt="">`;
-  else thumb = `<div class="box ${p.color ? "color" : ""}" style="width:${w}px;height:${h}px">${p.w}×${p.h}</div>`;
-  return `<a class="card" href="#/p/${p.id}">
-    <div class="thumb">${thumb}
+  const box = (cls) => `<div class="box ${cls} ${p.color ? "color" : ""}" style="width:${w}px;height:${h}px">${p.w}×${p.h}</div>`;
+  // solved: the picture; started: the player's own partial board (never the solution)
+  const src = started ? `thumb/${p.id}.png?v=${Date.now()}` : p.solved ? `image/${p.id}.png` : null;
+  // images are fetched in the background: a spinner shows until each one arrives (see imgDone)
+  const thumb = src ? `<img src="${src}" width="${w}" height="${h}" loading="lazy" alt="">${box("fallback")}<span class="spinner"></span>` : box("");
+  cardData.set(p.id, p);
+  return `<a class="card" href="#/p/${p.id}" data-id="${p.id}">
+    <div class="thumb${src ? " loading" : ""}">${thumb}
       ${p.solved ? '<span class="badge">✓ solved</span>' : ""}
-      ${started ? `<span class="badge pct">${p.progress}%</span><div class="prog" style="width:${Math.min(100, p.progress)}%"></div>` : ""}
+      ${started ? `<span class="badge pct">${p.progress}%</span><div class="prog" style="width:${Math.min(100, p.progress)}%"></div>
+        <button class="del" title="Delete progress">✕</button>` : ""}
     </div>
     <div class="meta">
       <div class="t" title="${esc(p.title)}">${esc(p.title || "Untitled")}</div>
@@ -240,7 +305,20 @@ function cardHtml(p) {
       <div class="stats"><span title="Rating">★ ${stars(p.rating)}</span><span title="Difficulty">⚔ ${stars(p.difficulty)}</span><span title="Fans">♥ ${stars(p.fans)}</span><span>#${p.id}</span></div>
     </div></a>`;
 }
+// load/error don't bubble, so listen in the capture phase
+function imgDone(e) {
+  const t = e.target.tagName === "IMG" && e.target.parentNode;
+  if (!t || !t.classList.contains("thumb")) return;
+  t.classList.remove("loading");
+  t.classList.toggle("failed", e.type === "error");
+}
+$("#browse").addEventListener("load", imgDone, true);
+$("#browse").addEventListener("error", imgDone, true);
 $("#browse").addEventListener("click", (e) => {
+  const card = e.target.closest(".card");
+  const p = card && cardData.get(+card.dataset.id);
+  if (p && e.target.closest(".del")) { e.preventDefault(); deleteProgress(p); return; }
+  if (p && p.solved && p.progress == null && !e.target.closest(".author")) { e.preventDefault(); showResult(p); return; }
   const a = e.target.closest(".author");
   if (!a) return;
   e.preventDefault();
@@ -249,6 +327,45 @@ $("#browse").addEventListener("click", (e) => {
   if (mode !== "browse") location.hash = "#/";
   filters.dispatchEvent(new Event("input"));
 });
+
+async function deleteProgress(p) {
+  const ok = await modal({
+    title: "Delete progress?",
+    text: `Your progress on “${p.title || "Untitled"}” (${p.progress}%) will be deleted. This can't be undone.`,
+    buttons: [{ label: "Cancel", value: false }, { label: "Delete", cls: "danger", value: true }],
+  });
+  if (!ok) return;
+  try { await call("deleteProgress", { id: p.id }); } catch (e) { toast("Could not delete: " + e.message); return; }
+  toast("Progress deleted");
+  // update in place so the list keeps its scroll position and loaded pages
+  const fresh = { ...p, progress: null };
+  document.querySelectorAll(`.card[data-id="${p.id}"]`).forEach((el) => {
+    if (el.closest("#stripCards") || mode === "continue") el.remove();
+    else el.outerHTML = cardHtml(fresh);
+  });
+  $("#continueStrip").hidden = !$("#stripCards").children.length;
+  if (mode === "continue" && !$("#cards").children.length) $("#cards").innerHTML = '<div class="empty">Nothing in progress yet.</div>';
+}
+
+/** The finished picture of a solved puzzle, with the option to play it again from scratch. */
+async function showResult(p) {
+  const pic = new Image();
+  pic.src = `image/${p.id}.png`;
+  const v = await modal({
+    title: p.title || "Untitled",
+    text: `#${p.id} · ${p.w}×${p.h} · by ${p.author} · ✓ solved`,
+    draw: (cv) => {
+      const { c } = pictureCanvas(cv, p.w, p.h);
+      const paint = () => { c.fillStyle = "#fff"; c.fillRect(0, 0, cv.width, cv.height); c.drawImage(pic, 0, 0, cv.width, cv.height); };
+      c.fillStyle = "#fff"; c.fillRect(0, 0, cv.width, cv.height);
+      if (pic.complete && pic.naturalWidth) paint(); else pic.onload = paint;
+    },
+    buttons: [{ label: "Close", value: null }, { label: "Solve again", cls: "primary", value: "again" }],
+  });
+  if (v !== "again") return;
+  try { await call("deleteProgress", { id: p.id }); } catch { /* nothing to clear */ }
+  location.hash = `#/p/${p.id}`;
+}
 
 // ------------------------------------------------------------------ game
 const EMPTY = 0, CROSS = -1;
@@ -476,16 +593,29 @@ const game = {
   },
 
   // ---- clue completion
-  lineState(isRow, i) {
+  /** Raw player cells of a line; with auto: also the auto crosses of finished lines. */
+  lineState(isRow, i, auto = true) {
     const n = isRow ? this.w : this.h;
     const out = new Array(n);
-    for (let k = 0; k < n; k++) out[k] = isRow ? this.cells[i * this.w + k] : this.cells[k * this.w + i];
+    for (let k = 0; k < n; k++) out[k] = isRow ? this.view(i * this.w + k, k, i, auto) : this.view(k * this.w + i, i, k, auto);
     return out;
+  },
+  /**
+   * What cell i at (x, y) shows. Crosses filling the empty cells of finished lines are never
+   * stored: they are derived here from rowFull/colFull, so they disappear as soon as the line
+   * stops matching its clue and undo/redo/saves only ever see what the player did.
+   */
+  view(i, x, y, auto = true) {
+    const v = this.cells[i];
+    return v === EMPTY && auto && this.autoCrossOn && (this.rowFull[y] || this.colFull[x]) ? CROSS : v;
+  },
+  lineFull(line, clue) {
+    const runs = runsOf(line);
+    return runs.length === clue.length && runs.every((r, k) => r.n === clue[k].n && r.c === clue[k].c);
   },
   doneFor(line, clue) {
     const done = new Array(clue.length).fill(false);
-    const runs = runsOf(line);
-    if (runs.length === clue.length && runs.every((r, k) => r.n === clue[k].n && r.c === clue[k].c)) {
+    if (this.lineFull(line, clue)) {
       done.fill(true);
       return { done, full: true };
     }
@@ -518,13 +648,26 @@ const game = {
     return { done, full: false };
   },
   updateDone(onlyRows, onlyCols) {
-    if (onlyRows == null) {
-      this.rowDone = this.rowClues.map((c, y) => this.doneFor(this.lineState(true, y), c));
-      this.colDone = this.colClues.map((c, x) => this.doneFor(this.lineState(false, x), c));
-    } else {
-      for (const y of onlyRows) this.rowDone[y] = this.doneFor(this.lineState(true, y), this.rowClues[y]);
-      for (const x of onlyCols) this.colDone[x] = this.doneFor(this.lineState(false, x), this.colClues[x]);
+    this.autoCrossOn = $("#autoCross").checked && !this.solved;
+    const all = onlyRows == null || !this.rowFull;
+    let rows = all ? this.rowClues.map((_, y) => y) : [...new Set(onlyRows)];
+    let cols = all ? this.colClues.map((_, x) => x) : [...new Set(onlyCols)];
+    if (all) { this.rowFull = []; this.colFull = []; this.rowDone = []; this.colDone = []; }
+    // fullness only depends on the player's own cells
+    let rowsFlipped = all, colsFlipped = all;
+    for (const y of rows) {
+      const f = this.lineFull(this.lineState(true, y, false), this.rowClues[y]);
+      if (f !== this.rowFull[y]) { this.rowFull[y] = f; rowsFlipped = true; }
     }
+    for (const x of cols) {
+      const f = this.lineFull(this.lineState(false, x, false), this.colClues[x]);
+      if (f !== this.colFull[x]) { this.colFull[x] = f; colsFlipped = true; }
+    }
+    // a row finishing or unfinishing changes the auto crosses seen by every column, and vice versa
+    if (rowsFlipped && this.autoCrossOn) cols = this.colClues.map((_, x) => x);
+    if (colsFlipped && this.autoCrossOn) rows = this.rowClues.map((_, y) => y);
+    for (const y of rows) this.rowDone[y] = this.doneFor(this.lineState(true, y), this.rowClues[y]);
+    for (const x of cols) this.colDone[x] = this.doneFor(this.lineState(false, x), this.colClues[x]);
   },
   toggleMark(kind, idx, k, value) {
     const set = kind === "row" ? this.rowMarks[idx] : this.colMarks[idx];
@@ -658,7 +801,6 @@ const game = {
   // ---- history / persistence
   commit(diff, fromHistory) {
     if (!fromHistory) {
-      if ($("#autoCross").checked) this.autoCross(diff);
       this.undo.push(diff);
       this.redo = [];
     }
@@ -666,15 +808,6 @@ const game = {
     this.scheduleSave();
     this.checkWin();
     this.draw();
-  },
-  autoCross(diff) {
-    const rows = new Set(), cols = new Set();
-    for (const [i] of diff) { rows.add(Math.floor(i / this.w)); cols.add(i % this.w); }
-    const extra = [];
-    const mark = (i) => { if (this.cells[i] === EMPTY) { extra.push([i, EMPTY, CROSS]); this.cells[i] = CROSS; } };
-    for (const y of rows) if (this.rowDone[y].full) for (let x = 0; x < this.w; x++) mark(y * this.w + x);
-    for (const x of cols) if (this.colDone[x].full) for (let y = 0; y < this.h; y++) mark(y * this.w + x);
-    if (extra.length) { diff.push(...extra); this.updateDone(); }
   },
   history(back) {
     const from = back ? this.undo : this.redo, to = back ? this.redo : this.undo;
@@ -743,38 +876,39 @@ const game = {
   },
 
   // ---- palette
+  // the full sidebar and the collapsed rail each get the same set of buttons
   buildPalette() {
-    const box = $("#palette");
-    box.innerHTML = "";
     const colors = this.color ? this.pal.slice(1) : [this.pal[1]];
-    colors.forEach((c, k) => {
-      const b = document.createElement("button");
-      b.style.background = c;
-      const key = k < 10 ? String((k + 1) % 10) : k < 20 ? "⇧" + ((k - 9) % 10) : "";
-      b.title = `Colour ${k + 1}${key ? ` (${key})` : ""}`;
-      b.innerHTML = `<span class="k" style="color:${luminance(c) > 0.55 ? "#000" : "#fff"}">${key}</span>`;
-      b.onclick = () => this.selectTool(k + 1);
-      box.appendChild(b);
-    });
-    const x = document.createElement("button");
-    x.textContent = "✕";
-    x.title = "Cross tool (X) — right click always crosses";
-    x.onclick = () => this.selectTool("x");
-    box.appendChild(x);
+    for (const box of [$("#palette"), $("#railPalette")]) {
+      box.innerHTML = "";
+      colors.forEach((c, k) => {
+        const b = document.createElement("button");
+        b.style.background = c;
+        const key = k < 10 ? String((k + 1) % 10) : k < 20 ? "⇧" + ((k - 9) % 10) : "";
+        b.title = `Colour ${k + 1}${key ? ` (${key})` : ""}`;
+        b.innerHTML = `<span class="k" style="color:${luminance(c) > 0.55 ? "#000" : "#fff"}">${key}</span>`;
+        b.onclick = () => this.selectTool(k + 1);
+        box.appendChild(b);
+      });
+      const x = document.createElement("button");
+      x.textContent = "✕";
+      x.title = "Cross tool (X) — right click always crosses";
+      x.onclick = () => this.selectTool("x");
+      box.appendChild(x);
+    }
     this.selectTool(1);
   },
   selectTool(t) {
     if (t === "x") this.crossTool = !this.crossTool;
     else if (t >= 1 && t <= this.pal.length - 1) { this.tool = t; this.crossTool = false; }
     else return;
-    const btns = $("#palette").children;
-    for (let k = 0; k < btns.length; k++) {
-      const isX = k === btns.length - 1;
-      btns[k].classList.toggle("sel", isX ? this.crossTool : !this.crossTool && k + 1 === this.tool);
+    for (const box of [$("#palette"), $("#railPalette")]) {
+      const btns = box.children;
+      for (let k = 0; k < btns.length; k++) {
+        const isX = k === btns.length - 1;
+        btns[k].classList.toggle("sel", isX ? this.crossTool : !this.crossTool && k + 1 === this.tool);
+      }
     }
-    const rt = $("#railTool");
-    rt.style.background = this.crossTool ? "transparent" : this.pal[this.tool];
-    rt.textContent = this.crossTool ? "✕" : "";
   },
 
   // ---- rendering
@@ -814,7 +948,7 @@ const game = {
     }
     for (let y = y0; y < y1; y++) {
       for (let x = x0; x < x1; x++) {
-        const v = this.cells[y * w + x];
+        const v = this.view(y * w + x, x, y);
         const px = gx + x * cs, py = gy + y * cs;
         if (v > 0) {
           c.fillStyle = this.pal[v];
@@ -898,10 +1032,13 @@ const game = {
     c.textAlign = "center";
     c.textBaseline = "middle";
 
+    // the clue bands' background stops where the board does
+    const boardR = Math.min(this.vw, gx + w * cs), boardB = Math.min(this.vh, gy + h * cs);
+
     // top clues
-    const topY = Math.max(0, by);
+    const topY = Math.max(0, by), leftX = Math.max(0, bx);
     c.fillStyle = panel;
-    c.fillRect(0, topY, this.vw, bottom - topY);
+    c.fillRect(leftX, topY, boardR - leftX, bottom - topY);
     for (let x = x0; x < x1; x++) {
       const clue = this.colClues[x], done = this.colDone[x], marks = this.colMarks[x];
       const hl = fx === x;
@@ -914,9 +1051,8 @@ const game = {
       }
     }
     // left clues
-    const leftX = Math.max(0, bx);
     c.fillStyle = panel;
-    c.fillRect(leftX, bottom, right - leftX, this.vh);
+    c.fillRect(leftX, bottom, right - leftX, boardB - bottom);
     for (let y = y0; y < y1; y++) {
       const clue = this.rowClues[y], done = this.rowDone[y], marks = this.rowMarks[y];
       const py = gy + y * cs;
@@ -937,6 +1073,23 @@ const game = {
     for (let x = x0; x <= x1; x++) if (x % 5 === 0) { const px = Math.round(gx + x * cs) + 0.5; if (px >= right) { c.moveTo(px, topY); c.lineTo(px, bottom); } }
     for (let y = y0; y <= y1; y++) if (y % 5 === 0) { const py = Math.round(gy + y * cs) + 0.5; if (py >= bottom) { c.moveTo(leftX, py); c.lineTo(right, py); } }
     c.stroke();
+
+    // outline the clues of the focused row and column; colour clue boxes hide the tint alone
+    if (focus && !this.solved) {
+      const lw = Math.max(2, Math.min(3, cs / 10));
+      c.strokeStyle = accent;
+      c.lineWidth = lw;
+      const outline = (x, y, bw, bh, clipX, clipY) => {
+        c.save();
+        c.beginPath();
+        c.rect(clipX, clipY, this.vw - clipX, this.vh - clipY);
+        c.clip();
+        c.strokeRect(x + lw / 2, y + lw / 2, bw - lw, bh - lw);
+        c.restore();
+      };
+      if (fx >= 0 && fx < w) outline(gx + fx * cs, topY, cs, bottom - topY, right, 0);
+      if (fy >= 0 && fy < h) outline(leftX, gy + fy * cs, right - leftX, cs, 0, bottom);
+    }
 
     // keyboard cursor on the grid
     if (this.kb && this.cursorKind() === "cell") {
@@ -1069,7 +1222,7 @@ window.addEventListener("keydown", (e) => {
     game.selectTool((d === 0 ? 10 : d) + (e.shiftKey ? 10 : 0));
     return;
   }
-  if (e.key === "Escape") { if (!$("#win").hidden) $("#win").hidden = true; else location.hash = "#/"; }
+  if (e.key === "Escape") location.hash = "#/";
   else if (e.key === "+" || e.key === "=") game.zoom(1.2);
   else if (e.key === "-") game.zoom(1 / 1.2);
   else if (key === "x") game.selectTool("x");
@@ -1102,9 +1255,7 @@ $("#resetBtn").onclick = () => { if (confirm("Clear the whole board?")) game.res
 $("#autoClues").checked = store.get("autoClues", true);
 $("#autoClues").onchange = (e) => { store.set("autoClues", e.target.checked); game.draw(); };
 $("#autoCross").checked = store.get("autoCross", false);
-$("#autoCross").onchange = (e) => store.set("autoCross", e.target.checked);
-$("#winBack").onclick = () => { $("#win").hidden = true; location.hash = "#/"; };
-$("#winStay").onclick = () => { $("#win").hidden = true; };
+$("#autoCross").onchange = (e) => { store.set("autoCross", e.target.checked); if (game.p) { game.updateDone(); game.draw(); } };
 // keep keyboard focus on the board after clicking sidebar buttons
 $("#side").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) b.blur(); });
 
@@ -1131,7 +1282,7 @@ async function openPuzzle(id) {
   const token = ++openToken;
   $("#pTitle").textContent = "Loading…";
   $("#pSub").textContent = "";
-  $("#win").hidden = true;
+  closeModal(null);
   let data;
   try { data = await call("puzzle", { id }); } catch (e) {
     toast("Could not load puzzle: " + e.message);
@@ -1150,20 +1301,25 @@ async function openPuzzle(id) {
 
 async function onSolved() {
   const m = game.meta;
-  const img = $("#winImg");
-  const s = Math.max(2, Math.floor(320 / Math.max(game.w, game.h)));
-  img.width = game.w * s; img.height = game.h * s;
-  const c = img.getContext("2d");
-  for (let i = 0; i < game.sol.length; i++) {
-    c.fillStyle = game.sol[i] ? game.pal[game.sol[i]] : game.pal[0];
-    c.fillRect((i % game.w) * s, Math.floor(i / game.w) * s, s, s);
-  }
-  $("#winText").textContent = `${m.title || "Untitled"} · ${fmtTime(game.time)}`;
-  $("#win").hidden = false;
+  const { w, h, sol, pal } = game;
+  modal({
+    title: "Solved!",
+    text: `${m.title || "Untitled"} · ${fmtTime(game.time)}`,
+    draw: (cv) => {
+      const { c, s } = pictureCanvas(cv, w, h);
+      for (let i = 0; i < sol.length; i++) {
+        c.fillStyle = sol[i] ? pal[sol[i]] : pal[0];
+        c.fillRect((i % w) * s, Math.floor(i / w) * s, s, s);
+      }
+    },
+    buttons: [{ label: "Look at it", value: null }, { label: "Back to list", cls: "primary", value: "back" }],
+  }).then((v) => { if (v === "back") location.hash = "#/"; });
   game.draw();
   try {
     const r = await call("solved", { id: m.id, seconds: game.time });
-    $("#winText").textContent += r.new ? " · syncing to your account…" : " · already on your account";
+    $("#modalText").textContent += status.logged_in
+      ? (r.new ? " · syncing to your account…" : " · already on your account")
+      : " · saved on this device, log in to sync it";
     setTimeout(refreshStatus, 3000);
   } catch (e) {
     toast("Could not record solve: " + e.message);
