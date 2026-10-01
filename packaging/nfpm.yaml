@@ -1,0 +1,26 @@
+# .deb and .rpm from the tree `make install PREFIX=/usr DESTDIR=stage` leaves in stage/.
+# VERSION and ARCH (amd64 | arm64) come from the environment, see .github/workflows/release.yml.
+name: katana-desktop
+version: ${VERSION}
+arch: ${ARCH}
+platform: linux
+section: games
+priority: optional
+maintainer: Arkady Buryakov <arkady@buryakov.pro>
+description: Unofficial desktop client for Nonograms Katana user puzzles, synced with your Katana account
+homepage: https://github.com/ArkadyBuryakov/katana-desktop
+license: MIT
+contents:
+  - src: stage/usr/bin/katana-desktop
+    dst: /usr/bin/katana-desktop
+  - src: stage/usr/share/applications/katana-desktop.desktop
+    dst: /usr/share/applications/katana-desktop.desktop
+  - src: stage/usr/share/icons/hicolor/256x256/apps/katana-desktop.png
+    dst: /usr/share/icons/hicolor/256x256/apps/katana-desktop.png
+  - src: LICENSE
+    dst: /usr/share/doc/katana-desktop/copyright
+overrides:
+  deb:
+    depends: [libwebkit2gtk-4.1-0, libgtk-3-0]
+  rpm:
+    depends: [webkit2gtk4.1, gtk3]

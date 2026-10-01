@@ -1,10 +1,16 @@
 #!/bin/sh
 # Build "Katana Desktop.app" (run on macOS). Pass a target such as
-# aarch64-apple-darwin or x86_64-apple-darwin, or nothing for the host.
+# aarch64-apple-darwin or x86_64-apple-darwin, "universal" for both chips
+# in one binary, or nothing for the host.
 set -e
 cd "$(dirname "$0")/.."
 TARGET="$1"
-if [ -n "$TARGET" ]; then
+if [ "$TARGET" = universal ]; then
+  cargo build --release --target aarch64-apple-darwin
+  cargo build --release --target x86_64-apple-darwin
+  BIN="target/universal/katana-desktop"; mkdir -p target/universal
+  lipo -create -output "$BIN" target/aarch64-apple-darwin/release/katana-desktop target/x86_64-apple-darwin/release/katana-desktop
+elif [ -n "$TARGET" ]; then
   cargo build --release --target "$TARGET"; BIN="target/$TARGET/release/katana-desktop"
 else
   cargo build --release; BIN="target/release/katana-desktop"

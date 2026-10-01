@@ -5,7 +5,7 @@ fn main() {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("web/icon.ico")
             .set("ProductName", "Katana Desktop")
-            .set("FileDescription", "Katana Desktop - Nonograms")
+            .set("FileDescription", "Katana Desktop - unofficial Nonograms Katana client")
             .set("CompanyName", "Katana Desktop");
         if let Err(e) = res.compile() {
             println!("cargo:warning=could not embed the Windows icon (no resource compiler?): {e}");

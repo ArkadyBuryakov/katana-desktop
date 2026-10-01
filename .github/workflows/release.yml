@@ -1,0 +1,117 @@
+# Push a tag vX.Y.Z (see `make release`) to build every package, publish a GitHub release
+# with them attached, and update the AUR packages. Tags with a "-" (v1.2.0-rc1) make a
+# prerelease and skip the AUR.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, arch: x86_64, debarch: amd64 }
+          - { runner: ubuntu-22.04-arm, arch: aarch64, debarch: arm64 }
+    # the oldest supported Ubuntu, so the binaries run on any glibc since 2.35
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check the tag matches Cargo.toml
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME, but Cargo.toml says $v"; exit 1; }
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev nfpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked --release
+      - run: cargo build --locked --release
+      - run: |
+          make install PREFIX=/usr DESTDIR=stage
+          install -Dm644 LICENSE -t stage/usr/share/licenses/katana-desktop
+      - name: Package
+        env:
+          ARCH: ${{ matrix.debarch }}
+        run: |
+          mkdir -p dist
+          tar -czf "dist/katana-desktop-$VERSION-linux-${{ matrix.arch }}.tar.gz" -C stage usr
+          nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+          nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
+      - uses: actions/upload-artifact@v5
+        with: { name: linux-${{ matrix.arch }}, path: dist/* }
+
+  windows:
+    # cross-built with MinGW + NSIS, the same as `make windows` locally
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y mingw-w64 nsis
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: x86_64-pc-windows-gnu }
+      - uses: Swatinem/rust-cache@v2
+      - run: make windows
+      - uses: actions/upload-artifact@v5
+        with: { name: windows, path: dist/*.exe }
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: 'aarch64-apple-darwin,x86_64-apple-darwin' }
+      - uses: Swatinem/rust-cache@v2
+      - run: ./scripts/bundle-macos.sh universal
+      - name: Make the .dmg
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+          mkdir -p target/dmg dist
+          cp -R "target/Katana Desktop.app" target/dmg/
+          ln -s /Applications target/dmg/Applications
+          hdiutil create -volname "Katana Desktop" -srcfolder target/dmg -format UDZO "dist/KatanaDesktop-$v-macos-universal.dmg"
+      - uses: actions/upload-artifact@v5
+        with: { name: macos, path: dist/*.dmg }
+
+  release:
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with: { path: dist, merge-multiple: true }
+      - run: cd dist && sha256sum * > SHA256SUMS
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --generate-notes --title "Katana Desktop ${GITHUB_REF_NAME#v}" \
+            $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
+
+  aur:
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    strategy:
+      matrix:
+        pkg: [katana-desktop, katana-desktop-bin]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: sed -i "s/^pkgver=.*/pkgver=${GITHUB_REF_NAME#v}/; s/^pkgrel=.*/pkgrel=1/" packaging/aur/${{ matrix.pkg }}/PKGBUILD
+      - uses: KSXGitHub/github-actions-deploy-aur@v4
+        with:
+          pkgname: ${{ matrix.pkg }}
+          pkgbuild: packaging/aur/${{ matrix.pkg }}/PKGBUILD
+          updpkgsums: true
+          commit_username: Arkady Buryakov
+          commit_email: arkady@buryakov.pro
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ github.ref_name }}

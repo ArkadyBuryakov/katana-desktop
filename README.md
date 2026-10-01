@@ -1,11 +1,27 @@
 # Katana Desktop
 
-A native Windows/macOS/Linux client for the user-created puzzles of
+An unofficial native Windows/macOS/Linux client for the user-created puzzles of
 [Nonograms Katana](https://nonograms-katana.com/), synced with your Katana account.
+
+> This is an independent fan project. It is not made, endorsed or supported by the developers of
+> Nonograms Katana. "Nonograms Katana" is their trademark, and the puzzles belong to their authors.
 
 It's a single Rust binary (~4 MB) built with [wry](https://github.com/tauri-apps/wry)/[tao](https://github.com/tauri-apps/tao).
 The UI runs in the system webview (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) and is embedded in the binary.
 There's no local server: the page talks to Rust over IPC.
+
+## Install
+
+Download a package for your system from [Releases](https://github.com/ArkadyBuryakov/katana-desktop/releases/latest):
+
+- **Arch Linux and derivatives:** from the AUR, `yay -S katana-desktop-bin` (prebuilt) or `yay -S katana-desktop` (built from source).
+- **Debian, Ubuntu, Mint, Pop!_OS (22.04+):** `katana-desktop_<version>_amd64.deb`, install with `sudo apt install ./katana-desktop_*.deb`.
+- **Fedora:** `katana-desktop-<version>-1.x86_64.rpm`, install with `sudo dnf install ./katana-desktop-*.rpm`.
+- **Other Linux:** `katana-desktop-<version>-linux-<arch>.tar.gz` holds a `usr/` tree; it needs `webkit2gtk-4.1`.
+- **Windows:** `KatanaDesktop-<version>-setup.exe` or `-portable.exe` (see below).
+- **macOS 11+:** `KatanaDesktop-<version>-macos-universal.dmg`. The app isn't notarized, so on first launch
+  macOS refuses to open it: allow it in System Settings → Privacy & Security → "Open Anyway",
+  or run `xattr -dr com.apple.quarantine "/Applications/Katana Desktop.app"`.
 
 ## Build & run
 
@@ -88,5 +104,15 @@ See `src/protocol.rs`. `cargo test` covers the format. With `KATANA_SAMPLES=<dir
 
 ## Development
 
+To release: `make release patch` (or `minor`, `major`, `rc` for a release candidate, or an exact `x.y.z` / `x.y.z-rcN`), then push the tag it prints. `.github/workflows/release.yml` then builds
+the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages, publishes a GitHub release
+with them and their `SHA256SUMS`, and pushes `packaging/aur/*` to the AUR with the new version and checksums.
+Tags like `v1.2.0-rc1` make a prerelease and skip the AUR. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
+repository secret: the private half of an SSH key added to the AUR account that maintains the packages.
+
 Debug builds can also serve the UI over HTTP for browser-based testing:
 `KATANA_DEV_HTTP=8766 cargo run` (add `KATANA_HEADLESS=1` to skip the window). IPC is then `POST /ipc`.
+
+## License
+
+[MIT](LICENSE). The license covers this project's code only, not the Nonograms Katana service or its content.

@@ -1,6 +1,6 @@
 ; Katana Desktop: per-user Windows installer (no admin rights needed).
 ; Built by `make windows`:
-;   makensis -DVERSION=<x.y.z> -DSRCDIR=<dir with exe + dll> -DICON=<.ico> -DWIZARD=<.bmp> -DOUTFILE=<setup.exe> installer/setup.nsi
+;   makensis -DVERSION=<x.y.z[-rcN]> -DFILEVERSION=<x.y.z.0> -DSRCDIR=<dir with exe + dll> -DICON=<.ico> -DWIZARD=<.bmp> -DOUTFILE=<setup.exe> installer/setup.nsi
 
 Unicode true
 !include "MUI2.nsh"
@@ -22,7 +22,7 @@ InstallDirRegKey HKCU "${UNINSTKEY}" "InstallLocation"
 SetCompressor /SOLID lzma
 BrandingText "${APPNAME} ${VERSION}"
 
-VIProductVersion "${VERSION}.0"
+VIProductVersion "${FILEVERSION}"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileVersion" "${VERSION}"
@@ -34,7 +34,7 @@ VIAddVersionKey "LegalCopyright" ""
 !define MUI_WELCOMEFINISHPAGE_BITMAP "${WIZARD}"
 !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${WIZARD}"
 !define MUI_ABORTWARNING
-!define MUI_WELCOMEPAGE_TEXT "This will install ${APPNAME} ${VERSION}, a desktop client for Nonograms Katana user puzzles.$\r$\n$\r$\nNo administrator rights are needed: it installs for your user only."
+!define MUI_WELCOMEPAGE_TEXT "This will install ${APPNAME} ${VERSION}, an unofficial desktop client for Nonograms Katana user puzzles.$\r$\n$\r$\nNo administrator rights are needed: it installs for your user only."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXENAME}"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${APPNAME}"
 

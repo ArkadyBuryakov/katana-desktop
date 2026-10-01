@@ -3,7 +3,7 @@
 ; to a temporary folder (removed again when the app exits) and runs the app from there.
 ; Progress and login live in %LOCALAPPDATA%\katana-desktop, shared with an installed copy.
 ; Built by `make windows`:
-;   makensis -DVERSION=<x.y.z> -DSRCDIR=<dir with exe + dll> -DICON=<.ico> -DOUTFILE=<portable.exe> installer/portable.nsi
+;   makensis -DVERSION=<x.y.z[-rcN]> -DFILEVERSION=<x.y.z.0> -DSRCDIR=<dir with exe + dll> -DICON=<.ico> -DOUTFILE=<portable.exe> installer/portable.nsi
 
 Unicode true
 !include "FileFunc.nsh"
@@ -18,7 +18,7 @@ RequestExecutionLevel user
 SilentInstall silent
 SetCompressor /SOLID lzma
 
-VIProductVersion "${VERSION}.0"
+VIProductVersion "${FILEVERSION}"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileVersion" "${VERSION}"

@@ -4,6 +4,12 @@
 #   make install         install for the current user (Linux: ~/.local, macOS: ~/Applications)
 #   make uninstall       remove what `make install` put in place (your data is kept)
 #   make run | test | clean
+#   make release ...     set the version, commit and tag; pushing the tag publishes the release
+#                        major|minor|patch bumps that part (zeroing the smaller ones); on an -rcN
+#                          version it releases that version instead, if it is already such a bump
+#                        rc starts or advances a release candidate: x.y.z-rc1, -rc2, ...
+#                        x.y.z or x.y.z-rcN sets it
+#                        (V=... works as well)
 #   make windows         cross-build dist/KatanaDesktop-<version>-setup.exe and -portable.exe
 #                        (needs mingw-w64-gcc, nsis and `rustup target add x86_64-pc-windows-gnu`)
 #
@@ -23,7 +29,7 @@ APPDIR  ?= $(HOME)/Applications
 
 SOURCES := Cargo.toml Cargo.lock build.rs $(wildcard src/*.rs) $(wildcard web/*)
 
-.PHONY: all build run test clean install uninstall bundle windows
+.PHONY: all build run test clean install uninstall bundle windows release
 
 all: build
 
@@ -42,6 +48,45 @@ clean:
 	cargo clean
 	rm -f dist/KatanaDesktop-*.exe  # only the build outputs: dist may be a symlink to a share
 
+# ---- Releases: .github/workflows/release.yml builds and publishes everything for a pushed v* tag
+# `make release patch`: the word after `release` is the version, not a target to build
+ifeq (release,$(firstword $(MAKECMDGOALS)))
+ifneq (,$(word 2,$(MAKECMDGOALS)))
+V := $(or $(V),$(word 2,$(MAKECMDGOALS)))
+.PHONY: $(word 2,$(MAKECMDGOALS))
+$(word 2,$(MAKECMDGOALS)): release
+	@:
+endif
+endif
+
+release:
+	@set -e; \
+	semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc[1-9][0-9]*)?$$'; \
+	usage="usage: make release major|minor|patch|rc|x.y.z[-rcN] (got '$(V)')"; \
+	cur='$(VERSION)'; \
+	case '$(V)' in major|minor|patch|rc) \
+		echo "$$cur" | grep -Eq "$$semver" || { echo "cannot bump: current version '$$cur' is not x.y.z[-rcN]"; exit 1; }; \
+		core=$${cur%%-*}; rc=; case "$$cur" in *-rc*) rc=$${cur##*-rc} ;; esac; \
+		major=$${core%%.*}; minor=$${core#*.}; minor=$${minor%%.*}; patch=$${core##*.} ;; \
+	esac; \
+	case '$(V)' in \
+		major) if [ -n "$$rc" ] && [ "$$minor.$$patch" = 0.0 ]; then new=$$core; else new=$$((major + 1)).0.0; fi ;; \
+		minor) if [ -n "$$rc" ] && [ "$$patch" = 0 ]; then new=$$core; else new=$$major.$$((minor + 1)).0; fi ;; \
+		patch) if [ -n "$$rc" ]; then new=$$core; else new=$$major.$$minor.$$((patch + 1)); fi ;; \
+		rc)    if [ -n "$$rc" ]; then new=$$core-rc$$((rc + 1)); \
+		       elif git rev-parse -q --verify "refs/tags/v$$cur" >/dev/null; then new=$$major.$$minor.$$((patch + 1))-rc1; \
+		       else new=$$cur-rc1; fi ;; \
+		*)     new='$(V)' ;; \
+	esac; \
+	echo "$$new" | grep -Eq "$$semver" || { echo "$$usage"; exit 1; }; \
+	git diff --quiet HEAD || { echo "commit or stash your changes first"; exit 1; }; \
+	echo "Releasing v$$new (was v$$cur)"; \
+	sed -i.bak 's/^version = ".*"/version = "'"$$new"'"/' Cargo.toml && rm Cargo.toml.bak; \
+	cargo update --workspace --offline; \
+	git commit -qam "Release v$$new"; \
+	git tag -a "v$$new" -m "v$$new"; \
+	echo "Tagged v$$new. Publish it with: git push origin HEAD v$$new"
+
 # ---- Windows releases, cross-compiled with MinGW and packaged with NSIS:
 #   dist/KatanaDesktop-<version>-setup.exe     per-user installer (Start menu, Apps & features)
 #   dist/KatanaDesktop-<version>-portable.exe  single-file, runs without installing
@@ -53,7 +98,8 @@ WIN_STAGE    := target/windows-stage
 VERSION      := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
 WIN_SETUP    := dist/KatanaDesktop-$(VERSION)-setup.exe
 WIN_PORTABLE := dist/KatanaDesktop-$(VERSION)-portable.exe
-NSIS_DEFS     = -V2 -DVERSION=$(VERSION) -DSRCDIR=$(abspath $(WIN_STAGE)) -DICON=$(abspath web/icon.ico) -DWIZARD=$(abspath installer/wizard.bmp)
+# Windows version resources must be numeric (x.y.z.0), so an -rcN suffix is dropped there
+NSIS_DEFS     = -V2 -DVERSION=$(VERSION) -DFILEVERSION=$(firstword $(subst -, ,$(VERSION))).0 -DSRCDIR=$(abspath $(WIN_STAGE)) -DICON=$(abspath web/icon.ico) -DWIZARD=$(abspath installer/wizard.bmp)
 
 windows: $(WIN_SETUP) $(WIN_PORTABLE)
 
@@ -102,7 +148,7 @@ install: $(BIN)
 		'Type=Application' \
 		'Name=$(APPNAME)' \
 		'GenericName=Nonograms' \
-		'Comment=Nonograms Katana user puzzles on the desktop' \
+		'Comment=Unofficial client for Nonograms Katana user puzzles' \
 		'Keywords=nonogram;nonograms;katana;griddlers;picross;hanjie;puzzle;' \
 		'Exec=$(PREFIX)/bin/$(NAME)' \
 		'Icon=$(NAME)' \
