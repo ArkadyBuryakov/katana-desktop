@@ -76,6 +76,18 @@ Set `KATANA_DATA` to use another directory.
 | `Ctrl+Z`, `Ctrl+Y` | undo, redo |
 | `Esc` | back to the list |
 
+Sidebar helpers, all off by default except the first:
+
+- **Cross out solved numbers** strikes through a clue number once its block is finished.
+- **Cross empty cells of finished lines** fills the rest of a finished row or column with crosses.
+- **Cross gaps around solved numbers** crosses the cells next to a block that can't grow any further,
+  everything between two solved neighbouring numbers, and everything between the border and a solved
+  first or last number.
+- **Help** (bottom of the sidebar, also when collapsed) does the first of these that applies:
+  fixes one mistake; fills in a block, part of a block or a gap that a single row or column gives away,
+  and highlights that line; reveals one random cell. The highlight stays until your next move.
+  The button counts the helps used on the puzzle; the count is saved with the board and shown when you solve it.
+
 ## What syncs
 
 An account is optional. Without one, solves and boards are kept on this device only. When you log in,

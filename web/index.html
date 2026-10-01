@@ -120,6 +120,7 @@
       </div>
       <label class="toggle" title="Strike through clue numbers whose block is finished"><input type="checkbox" id="autoClues"> Cross out solved numbers</label>
       <label class="toggle" title="Fill the rest of a finished line with crosses"><input type="checkbox" id="autoCross"> Cross empty cells of finished lines</label>
+      <label class="toggle" title="Cross the cells next to a finished block, between solved neighbours, and between the border and a solved first or last number"><input type="checkbox" id="autoGaps"> Cross gaps around solved numbers</label>
       <div class="btnrow">
         <button id="checkBtn" title="Flash mistakes">Check</button>
         <button id="resetBtn" title="Clear the board">Reset</button>
@@ -146,6 +147,7 @@
       <button id="railFit" class="ghost icon" title="Fit">⤢</button>
       <div id="railTimer"></div>
     </div>
+    <button id="helpBtn" title="Help: fixes a mistake if there is one, else fills in what one row or column gives away, else reveals a random cell"><svg class="bulb" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" fill="#ffc53d" stroke="#d99a00" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.5 19.5h5M10.5 22h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span class="lbl">Help</span><span id="helpCount" title="Helps used on this puzzle" hidden></span></button>
   </aside>
   <div id="stage"><canvas id="board"></canvas></div>
 </main>

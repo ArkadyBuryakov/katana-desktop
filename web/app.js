@@ -399,8 +399,9 @@ function luminance(hex) {
  * Line feasibility for a (possibly colour) nonogram line.
  * line[i]: 0 unknown, -1 crossed, c > 0 filled with colour c. Same-colour neighbouring
  * clue numbers need a gap, different colours may touch.
- * Returns null when no arrangement fits, else { exactly(k, s) } telling whether clue
- * number k can occupy exactly cells [s, s + n_k) in some valid arrangement.
+ * Returns null when no arrangement fits, else { exactly(k, s), empty(i) }: whether clue
+ * number k can occupy exactly cells [s, s + n_k), and whether cell i can stay empty, in
+ * some valid arrangement.
  */
 function solveLine(line, clue) {
   const n = line.length, m = clue.length, W = m + 1;
@@ -452,6 +453,13 @@ function solveLine(line, clue) {
       const after = Gb[e * W + k + 1] || (Eb[e * W + k + 1] && !sameAsNext(k));
       return !!(before && after);
     },
+    empty(i) {
+      if (!canEmpty(i)) return false;
+      for (let k = 0; k <= m; k++) {
+        if ((G[i * W + k] || E[i * W + k]) && (Gb[(i + 1) * W + k] || Eb[(i + 1) * W + k])) return true;
+      }
+      return false;
+    },
   };
 }
 
@@ -474,6 +482,7 @@ const game = {
     this.nearBoard = this.pal.map((p) => colorDistance(p, this.pal[0]) < 64);
     this.cells = new Int8Array(w * h);
     this.time = 0;
+    this.helps = 0; // times Help was used on this board; undo and Reset don't take them back
     this.solved = false;
     // manually crossed-out clue numbers: rowMarks[y] / colMarks[x] = Set of clue indexes
     this.rowMarks = Array.from({ length: h }, () => new Set());
@@ -481,6 +490,7 @@ const game = {
     if (progress && progress.cells && progress.cells.length === w * h && !progress.solved) {
       this.cells.set(progress.cells);
       this.time = progress.time || 0;
+      this.helps = progress.helps || 0;
       const m = progress.marks || {};
       for (const [y, ks] of Object.entries(m.r || {})) if (this.rowMarks[y]) ks.forEach((k) => this.rowMarks[y].add(k));
       for (const [x, ks] of Object.entries(m.c || {})) if (this.colMarks[x]) ks.forEach((k) => this.colMarks[x].add(k));
@@ -504,8 +514,12 @@ const game = {
     this.drag = null;
     this.spaceStroke = null;
     this.flash = null;
+    this.hint = null; // what the last Help did: { color, cells, isRow?, line? }
+    this.gaps = new Uint8Array(w * h); // auto crosses around solved numbers, see spreadGaps
+    this.lineCache = [];
     this.dirty = false;
     this.buildPalette();
+    this.showHelps();
     this.resize();
     if (this.autoFit) this.fit(); else this.fit(14);
     this.updateFitBtn();
@@ -601,54 +615,79 @@ const game = {
     return out;
   },
   /**
-   * What cell i at (x, y) shows. Crosses filling the empty cells of finished lines are never
-   * stored: they are derived here from rowFull/colFull, so they disappear as soon as the line
-   * stops matching its clue and undo/redo/saves only ever see what the player did.
+   * What cell i at (x, y) shows. Crosses filling the empty cells of finished lines, and the
+   * ones around solved numbers, are never stored: they are derived from rowFull/colFull and
+   * gaps, so they disappear as soon as the line stops matching its clue and undo/redo/saves
+   * only ever see what the player did.
    */
   view(i, x, y, auto = true) {
     const v = this.cells[i];
-    return v === EMPTY && auto && this.autoCrossOn && (this.rowFull[y] || this.colFull[x]) ? CROSS : v;
+    if (v !== EMPTY || !auto) return v;
+    return this.gaps[i] || (this.autoCrossOn && (this.rowFull[y] || this.colFull[x])) ? CROSS : v;
   },
   lineFull(line, clue) {
     const runs = runsOf(line);
     return runs.length === clue.length && runs.every((r, k) => r.n === clue[k].n && r.c === clue[k].c);
   },
+  /**
+   * done[k]: clue number k is solved. gaps: cells that must be empty because of the solved
+   * numbers (the caller skips the ones that aren't unknown).
+   */
   doneFor(line, clue) {
-    const done = new Array(clue.length).fill(false);
+    const m = clue.length, n = line.length;
+    const done = new Array(m).fill(false), gaps = [];
+    const span = (a, b) => { for (let j = a; j < b; j++) gaps.push(j); };
     if (this.lineFull(line, clue)) {
       done.fill(true);
-      return { done, full: true };
+      span(0, n);
+      return { done, full: true, gaps };
     }
-    const m = clue.length, n = line.length;
-    if (!m) return { done, full: false };
+    if (!m) return { done, full: false, gaps };
     const sol = solveLine(line, clue);
-    if (!sol) return { done, full: false }; // the line contradicts its clue: claim nothing
+    if (!sol) return { done, full: false, gaps }; // the line contradicts its clue: claim nothing
     // A block is a solved number when, across all valid arrangements, the only clue
     // placement covering it is one number sitting exactly on it. This catches blocks
     // closed by crosses/edges/other colours, and also full-length blocks next to
     // unknown cells that can't grow any further.
+    // A block that several numbers could be, all of its own length, is complete all the
+    // same: it needs a gap on each side where every candidate's neighbour shares its colour.
+    const at = new Array(m); // where each solved number starts
     let i = 0;
     while (i < n) {
       const c = line[i];
       if (c <= 0) { i++; continue; }
       let e = i;
       while (e < n && line[e] === c) e++;
-      let found = -1, ambiguous = false;
-      for (let k = 0; k < m && !ambiguous; k++) {
+      let found = -1, count = 0, exact = true, gapL = true, gapR = true;
+      for (let k = 0; k < m && exact; k++) {
         if (clue[k].c !== c || clue[k].n < e - i) continue;
         for (let s = Math.max(0, e - clue[k].n); s <= i; s++) {
           if (!sol.exactly(k, s)) continue;
-          if (found !== -1 || s !== i || clue[k].n !== e - i) { ambiguous = true; break; }
-          found = k;
+          if (clue[k].n !== e - i) { exact = false; break; }
+          found = k; count++;
+          if (k > 0 && clue[k - 1].c !== c) gapL = false;
+          if (k + 1 < m && clue[k + 1].c !== c) gapR = false;
         }
       }
-      if (found !== -1 && !ambiguous) done[found] = true;
+      if (exact && count) {
+        if (gapL && i > 0) gaps.push(i - 1);
+        if (gapR && e < n) gaps.push(e);
+        if (count === 1) { done[found] = true; at[found] = i; }
+      }
       i = e;
     }
-    return { done, full: false };
+    // nothing but gaps between two solved neighbours, and between the border and the number next to it
+    for (let k = 0; k < m; k++) {
+      if (!done[k]) continue;
+      if (k === 0) span(0, at[k]);
+      if (k === m - 1) span(at[k] + clue[k].n, n);
+      else if (done[k + 1]) span(at[k] + clue[k].n, at[k + 1]);
+    }
+    return { done, full: false, gaps };
   },
   updateDone(onlyRows, onlyCols) {
     this.autoCrossOn = $("#autoCross").checked && !this.solved;
+    const gapsOn = $("#autoGaps").checked && !this.solved;
     const all = onlyRows == null || !this.rowFull;
     let rows = all ? this.rowClues.map((_, y) => y) : [...new Set(onlyRows)];
     let cols = all ? this.colClues.map((_, x) => x) : [...new Set(onlyCols)];
@@ -663,11 +702,44 @@ const game = {
       const f = this.lineFull(this.lineState(false, x, false), this.colClues[x]);
       if (f !== this.colFull[x]) { this.colFull[x] = f; colsFlipped = true; }
     }
+    if (gapsOn) { this.spreadGaps(); return; }
+    if (all) this.gaps.fill(0);
     // a row finishing or unfinishing changes the auto crosses seen by every column, and vice versa
     if (rowsFlipped && this.autoCrossOn) cols = this.colClues.map((_, x) => x);
     if (colsFlipped && this.autoCrossOn) rows = this.rowClues.map((_, y) => y);
     for (const y of rows) this.rowDone[y] = this.doneFor(this.lineState(true, y), this.rowClues[y]);
     for (const x of cols) this.colDone[x] = this.doneFor(this.lineState(false, x), this.colClues[x]);
+  },
+  /**
+   * Auto crosses around solved numbers. A new cross can finish a number in the crossing line
+   * (or in its own), so lines are redone until nothing changes. Every move starts over from
+   * no crosses, so a line the move didn't touch goes through the states it went through last
+   * time: those come from the cache.
+   */
+  spreadGaps() {
+    const w = this.w;
+    this.gaps.fill(0);
+    const rows = new Set(this.rowClues.keys()), cols = new Set(this.colClues.keys());
+    while (rows.size || cols.size) {
+      for (const [isRow, todo, other] of [[true, rows, cols], [false, cols, rows]]) {
+        for (const i of todo) {
+          todo.delete(i);
+          const line = this.lineState(isRow, i), key = line.join();
+          const seen = this.lineCache[isRow ? i : this.h + i] ??= new Map();
+          let res = seen.get(key);
+          if (!res) {
+            if (seen.size >= 16) seen.clear();
+            seen.set(key, res = this.doneFor(line, isRow ? this.rowClues[i] : this.colClues[i]));
+          }
+          (isRow ? this.rowDone : this.colDone)[i] = res;
+          for (const k of res.gaps) {
+            if (line[k] !== EMPTY) continue;
+            this.gaps[isRow ? i * w + k : k * w + i] = 1;
+            todo.add(i); other.add(k);
+          }
+        }
+      }
+    }
   },
   toggleMark(kind, idx, k, value) {
     const set = kind === "row" ? this.rowMarks[idx] : this.colMarks[idx];
@@ -782,10 +854,10 @@ const game = {
     if (st && st.changed.size) this.commit([...st.changed].map(([i, before]) => [i, before, this.cells[i]]));
     else this.draw();
   },
-  revealCursor() {
+  revealCursor(at = this.cursor) {
     if (this.autoFit) return;
     const b = this.bands(), cs = this.cs;
-    const { x, y } = this.cursor;
+    const { x, y } = at;
     const px = this.gx + Math.max(x, 0) * cs, py = this.gy + Math.max(y, 0) * cs;
     if (x >= 0) {
       if (px < b.right) this.gx += b.right - px + cs;
@@ -799,7 +871,8 @@ const game = {
   },
 
   // ---- history / persistence
-  commit(diff, fromHistory) {
+  commit(diff, fromHistory, hint = null) {
+    this.hint = hint; // a Help highlight lasts until the next move
     if (!fromHistory) {
       this.undo.push(diff);
       this.redo = [];
@@ -824,6 +897,7 @@ const game = {
     this.rowMarks.forEach((s) => s.clear());
     this.colMarks.forEach((s) => s.clear());
     this.cells.fill(0);
+    this.hint = null;
     this.updateDone();
     if (diff.length) { this.undo.push(diff); this.redo = []; }
     this.dirty = true; this.scheduleSave(); this.draw();
@@ -842,6 +916,75 @@ const game = {
     this.flash = new Set(bad);
     this.draw();
     setTimeout(() => { this.flash = null; this.draw(); }, 1500);
+  },
+
+  // ---- help
+  /** Every run of unknown cells that one line alone settles: { isRow, line, cells: [[i, value]] }. */
+  deductions() {
+    const out = [];
+    for (const isRow of [true, false]) {
+      (isRow ? this.rowClues : this.colClues).forEach((clue, idx) => {
+        const line = this.lineState(isRow, idx), n = line.length;
+        const sol = solveLine(line, clue);
+        if (!sol) return;
+        // the colour each cell may take: 0 none, c just that one, -1 several
+        const can = new Int16Array(n);
+        clue.forEach(({ n: len, c }, k) => {
+          let from = 0;
+          for (let s = 0; s + len <= n; s++) {
+            if (!sol.exactly(k, s)) continue;
+            for (let j = Math.max(s, from); j < s + len; j++) can[j] = can[j] === 0 || can[j] === c ? c : -1;
+            from = s + len;
+          }
+        });
+        let run = null, last = 0;
+        for (let j = 0; j < n; j++) {
+          let v = 0;
+          if (line[j] === EMPTY) {
+            if (can[j] === 0) v = CROSS;
+            else if (can[j] > 0 && !sol.empty(j)) v = can[j];
+          }
+          if (v && v !== last) out.push(run = { isRow, line: idx, cells: [] });
+          if (v) run.cells.push([isRow ? idx * this.w + j : j * this.w + idx, v]);
+          last = v;
+        }
+      });
+    }
+    return out;
+  },
+  /** Does the first that applies: fix a mistake, settle something a single line gives away, reveal a random cell. */
+  help() {
+    if (!this.p || this.solved || this.drag || this.spaceStroke) return;
+    const bad = this.mistakes();
+    let hint;
+    if (bad.length) {
+      hint = { color: "#e5484d", cells: [[bad[0], this.sol[bad[0]] || CROSS]] };
+      toast(bad.length > 1 ? `Fixed a mistake, ${bad.length - 1} more left` : "Fixed a mistake");
+    } else {
+      const found = this.deductions();
+      if (found.length) {
+        hint = { color: "#30a46c", ...found[Math.floor(Math.random() * found.length)] };
+        toast(`${hint.isRow ? "Row" : "Column"} ${hint.line + 1} gives this away`);
+      } else {
+        const open = [];
+        for (let i = 0; i < this.cells.length; i++) if (this.view(i, i % this.w, Math.floor(i / this.w)) === EMPTY) open.push(i);
+        if (!open.length) return;
+        const i = open[Math.floor(Math.random() * open.length)];
+        hint = { color: "#0090ff", cells: [[i, this.sol[i] || CROSS]] };
+        toast("No line gives anything away: revealed a cell");
+      }
+    }
+    this.helps++;
+    this.showHelps();
+    const diff = hint.cells.map(([i, v]) => [i, this.cells[i], v]);
+    for (const [i, , v] of diff) this.cells[i] = v;
+    this.updateDone();
+    this.revealCursor({ x: diff[0][0] % this.w, y: Math.floor(diff[0][0] / this.w) });
+    this.commit(diff, false, hint);
+  },
+  showHelps() {
+    $("#helpCount").textContent = this.helps;
+    $("#helpCount").hidden = !this.helps;
   },
   filledCount() { let n = 0; for (const v of this.cells) if (v > 0) n++; return n; },
   checkWin() {
@@ -863,7 +1006,7 @@ const game = {
   snapshot() {
     const marks = (arr) => Object.fromEntries(arr.map((s, i) => [i, [...s]]).filter(([, v]) => v.length));
     return {
-      cells: Array.from(this.cells), time: this.time, solved: this.solved,
+      cells: Array.from(this.cells), time: this.time, helps: this.helps, solved: this.solved,
       marks: { r: marks(this.rowMarks), c: marks(this.colMarks) },
       pct: Math.min(99, Math.floor(this.filledCount() * 100 / Math.max(1, this.totalFilled))),
     };
@@ -976,6 +1119,18 @@ const game = {
       for (const i of this.flash) c.strokeRect(gx + (i % w) * cs + 1, gy + Math.floor(i / w) * cs + 1, cs - 2, cs - 2);
     }
 
+    const hint = this.solved ? null : this.hint;
+    if (hint) {
+      c.fillStyle = c.strokeStyle = hint.color;
+      if (hint.line != null) {
+        c.globalAlpha = 0.16;
+        if (hint.isRow) c.fillRect(gx, gy + hint.line * cs, w * cs, cs); else c.fillRect(gx + hint.line * cs, gy, cs, h * cs);
+        c.globalAlpha = 1;
+      }
+      c.lineWidth = Math.max(2, cs / 8);
+      for (const [i] of hint.cells) c.strokeRect(gx + (i % w) * cs + 1, gy + Math.floor(i / w) * cs + 1, cs - 2, cs - 2);
+    }
+
     // grid lines
     if (!this.solved || cs >= 10) {
       const thin = ink2(0.14);
@@ -1075,20 +1230,27 @@ const game = {
     c.stroke();
 
     // outline the clues of the focused row and column; colour clue boxes hide the tint alone
+    const lw = Math.max(2, Math.min(3, cs / 10));
+    c.lineWidth = lw;
+    const outline = (x, y, bw, bh, clipX, clipY) => {
+      c.save();
+      c.beginPath();
+      c.rect(clipX, clipY, this.vw - clipX, this.vh - clipY);
+      c.clip();
+      c.strokeRect(x + lw / 2, y + lw / 2, bw - lw, bh - lw);
+      c.restore();
+    };
+    const outlineCol = (x) => outline(gx + x * cs, topY, cs, bottom - topY, right, 0);
+    const outlineRow = (y) => outline(leftX, gy + y * cs, right - leftX, cs, 0, bottom);
     if (focus && !this.solved) {
-      const lw = Math.max(2, Math.min(3, cs / 10));
       c.strokeStyle = accent;
-      c.lineWidth = lw;
-      const outline = (x, y, bw, bh, clipX, clipY) => {
-        c.save();
-        c.beginPath();
-        c.rect(clipX, clipY, this.vw - clipX, this.vh - clipY);
-        c.clip();
-        c.strokeRect(x + lw / 2, y + lw / 2, bw - lw, bh - lw);
-        c.restore();
-      };
-      if (fx >= 0 && fx < w) outline(gx + fx * cs, topY, cs, bottom - topY, right, 0);
-      if (fy >= 0 && fy < h) outline(leftX, gy + fy * cs, right - leftX, cs, 0, bottom);
+      if (fx >= 0 && fx < w) outlineCol(fx);
+      if (fy >= 0 && fy < h) outlineRow(fy);
+    }
+    // and of the line the last Help worked from
+    if (hint && hint.line != null) {
+      c.strokeStyle = hint.color;
+      if (hint.isRow) outlineRow(hint.line); else outlineCol(hint.line);
     }
 
     // keyboard cursor on the grid
@@ -1256,6 +1418,9 @@ $("#autoClues").checked = store.get("autoClues", true);
 $("#autoClues").onchange = (e) => { store.set("autoClues", e.target.checked); game.draw(); };
 $("#autoCross").checked = store.get("autoCross", false);
 $("#autoCross").onchange = (e) => { store.set("autoCross", e.target.checked); if (game.p) { game.updateDone(); game.draw(); } };
+$("#autoGaps").checked = store.get("autoGaps", false);
+$("#autoGaps").onchange = (e) => { store.set("autoGaps", e.target.checked); if (game.p) { game.updateDone(); game.draw(); } };
+$("#helpBtn").onclick = () => game.help();
 // keep keyboard focus on the board after clicking sidebar buttons
 $("#side").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) b.blur(); });
 
@@ -1304,7 +1469,7 @@ async function onSolved() {
   const { w, h, sol, pal } = game;
   modal({
     title: "Solved!",
-    text: `${m.title || "Untitled"} · ${fmtTime(game.time)}`,
+    text: `${m.title || "Untitled"} · ${fmtTime(game.time)} · ${game.helps ? `${game.helps} help${game.helps > 1 ? "s" : ""}` : "no help"}`,
     draw: (cv) => {
       const { c, s } = pictureCanvas(cv, w, h);
       for (let i = 0; i < sol.length; i++) {

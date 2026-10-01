@@ -182,6 +182,19 @@ a { color: var(--accent); }
 #side.collapsed .full { display: none; }
 #side.collapsed .rail { display: flex; }
 #side.collapsed .sidetop { flex-direction: column; align-items: center; gap: 8px; }
+#helpBtn {
+  flex: none; margin-top: auto; position: sticky; bottom: 0; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+#helpBtn .bulb { width: 18px; height: 18px; flex: none; }
+#helpCount {
+  position: absolute; right: -6px; bottom: -6px; min-width: 18px; padding: 0 4px; border-radius: 99px;
+  background: var(--card); border: 1px solid var(--line);
+  font-size: 10px; line-height: 16px; font-variant-numeric: tabular-nums;
+}
+#helpBtn:hover #helpCount { border-color: var(--muted); }
+#side.collapsed #helpBtn { width: 34px; height: 34px; padding: 0; align-self: center; }
+#side.collapsed #helpBtn .lbl { display: none; }
 .ptitle { display: flex; flex-direction: column; }
 .ptitle b { font-size: 15px; overflow-wrap: anywhere; }
 .ptitle span { color: var(--muted); font-size: 12px; }
