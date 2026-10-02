@@ -49,7 +49,7 @@ jobs:
           nfpm package -f packaging/nfpm.yaml -p deb -t dist/
           nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
       - uses: actions/upload-artifact@v5
-        with: { name: linux-${{ matrix.arch }}, path: dist/* }
+        with: { name: 'linux-${{ matrix.arch }}', path: dist/* }
 
   windows:
     # cross-built with MinGW + NSIS, the same as `make windows` locally
