@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en" data-mode="desktop">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Katana Desktop: Nonograms Katana puzzles on Windows, macOS, Linux and in a terminal</title>
+<meta name="description" content="An unofficial native client for the user-created puzzles of Nonograms Katana, synced with your Katana account. A 4 MB desktop app and a terminal app for Windows, macOS and Linux.">
+<link rel="canonical" href="https://katana.buryakov.pro/">
+<meta property="og:title" content="Katana Desktop">
+<meta property="og:description" content="Nonograms Katana's user-created puzzles in a 4 MB desktop app, or in your terminal.">
+<meta property="og:image" content="https://katana.buryakov.pro/img/og.jpg">
+<meta property="og:url" content="https://katana.buryakov.pro/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+<!-- before the first paint: the mode from the address (#tui, #desktop) or the last visit -->
+<script>
+(function (d) {
+  d.className = 'js';
+  try {
+    var m = location.hash === '#tui' ? 'tui' : location.hash === '#desktop' ? 'desktop' : localStorage.getItem('mode');
+    if (m === 'tui' || m === 'desktop') d.dataset.mode = m;
+  } catch (e) {}
+})(document.documentElement);
+</script>
+</head>
+<body>
+
+<header id="topbar">
+  <a class="brand" href="./"><img src="icon.png" alt="" width="22" height="22">Katana</a>
+  <nav class="modes" aria-label="Edition">
+    <button type="button" data-set-mode="desktop" aria-pressed="true">Desktop</button>
+    <button type="button" data-set-mode="tui" aria-pressed="false">TUI</button>
+  </nav>
+  <span class="spacer"></span>
+  <a class="plain" href="#install">Install</a>
+  <a class="plain" href="https://github.com/ArkadyBuryakov/katana-desktop">GitHub</a>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="herotext">
+      <h1 data-only="desktop">Katana Desktop</h1>
+      <h1 data-only="tui">katana-tui</h1>
+      <p class="lead" data-only="desktop">
+        An unofficial native client for the user-created puzzles of
+        <a href="https://nonograms-katana.com/">Nonograms Katana</a>, synced with your Katana account.
+        One 4&nbsp;MB program for Windows, macOS and Linux.
+      </p>
+      <p class="lead" data-only="tui">
+        Katana Desktop in a terminal: the puzzle list, your
+        <a href="https://nonograms-katana.com/">Nonograms Katana</a> account and the board,
+        by keyboard or mouse. One binary with no dependencies.
+      </p>
+      <p class="actions">
+        <a class="button primary" href="#install">Install<span id="ctaOs"></span></a>
+        <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop">Source on GitHub</a>
+      </p>
+      <p class="meta">v<span class="ver">1.1.0</span> · MIT · Windows, macOS, Linux</p>
+    </div>
+    <a class="shot" data-only="desktop" href="img/desktop-board.webp">
+      <img src="img/desktop-board.webp" width="1600" height="1075" alt="Katana Desktop with a colour puzzle half solved">
+    </a>
+    <a class="shot" data-only="tui" href="img/tui-board.webp" data-title="katana-tui">
+      <img src="img/tui-board.webp" width="2060" height="1416" alt="katana-tui in a terminal with a colour puzzle half solved">
+    </a>
+  </section>
+
+  <section class="block" id="features">
+    <h2>What it does</h2>
+    <div class="features">
+      <article>
+        <h3>Over 200,000 puzzles</h3>
+        <p>The whole user-created catalogue, black and white and colour. Search by title or author,
+          filter by size, colour and rating, and pick up the boards you left in progress.</p>
+      </article>
+      <article>
+        <h3>Synced with your account</h3>
+        <p>Log in and your solved puzzles, score and play time sync both ways with the official apps.
+          An account is optional: as a guest, everything is kept on this device.</p>
+      </article>
+      <article>
+        <h3>Helpers when you want them</h3>
+        <p>Cross out solved numbers, the rest of a finished line, and the gaps around solved blocks.
+          Help fixes a mistake or shows what a single row or column gives away.</p>
+      </article>
+      <article data-only="desktop">
+        <h3>Keyboard and mouse</h3>
+        <p>Drag to paint a straight line, wheel to scroll and zoom. Or stay on the keyboard:
+          arrows or <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>, <kbd>Space</kbd> to mark,
+          digits for colours, undo and redo.</p>
+      </article>
+      <article data-only="tui">
+        <h3>Keyboard and mouse</h3>
+        <p>Arrows or <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>, <kbd>Space</kbd> to mark,
+          <kbd>Enter</kbd> to draw a line, digits for colours. Click, drag and the wheel work too.</p>
+      </article>
+      <article data-only="desktop">
+        <h3>Small and native</h3>
+        <p>A single Rust binary that draws its UI in the system webview. No Electron and no local
+          server. Light and dark themes.</p>
+      </article>
+      <article data-only="tui">
+        <h3>Only a terminal</h3>
+        <p>Built with ratatui: no webview, no GTK. It wants 24-bit colour and falls back to 256.
+          Big puzzles scroll under their clues instead of shrinking.</p>
+      </article>
+      <article data-only="desktop">
+        <h3>Also in a terminal</h3>
+        <p><a href="#tui" data-set-mode="tui">katana-tui</a> is the same app without a window.
+          It shares the login and every board with the desktop app.</p>
+      </article>
+      <article data-only="tui">
+        <h3>Shared with the desktop app</h3>
+        <p>Same data directory as <a href="#desktop" data-set-mode="desktop">Katana Desktop</a>:
+          the login, the puzzle list and every board. Start in one, continue in the other.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="screenshots">
+    <h2>Screenshots</h2>
+    <div class="gallery" data-only="desktop">
+      <figure>
+        <a class="shot" href="img/desktop-list.webp"><img loading="lazy" src="img/desktop-list.webp" width="1600" height="1075" alt="Puzzle list with boards in progress and solved puzzles"></a>
+        <figcaption>Browse and continue</figcaption>
+      </figure>
+      <figure>
+        <a class="shot" href="img/desktop-dark.webp"><img loading="lazy" src="img/desktop-dark.webp" width="1600" height="1075" alt="Black and white puzzle in the dark theme with a Help highlight"></a>
+        <figcaption>Dark theme, after a Help</figcaption>
+      </figure>
+    </div>
+    <div class="gallery" data-only="tui">
+      <figure>
+        <a class="shot" href="img/tui-list.webp"><img loading="lazy" src="img/tui-list.webp" width="2060" height="1256" alt="Puzzle list in a terminal, with the picture of the board in progress beside it"></a>
+        <figcaption>The list, with your board beside it</figcaption>
+      </figure>
+      <figure>
+        <a class="shot" href="img/tui-light.webp"><img loading="lazy" src="img/tui-light.webp" width="1676" height="1256" alt="The same puzzle in the light theme with the sidebar collapsed and a Help highlight on one row"></a>
+        <figcaption>Light theme, sidebar collapsed, after a Help</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block" id="install">
+    <h2>Install</h2>
+    <div class="tabs" role="tablist" aria-label="System">
+      <button type="button" role="tab" data-os="windows">Windows</button>
+      <button type="button" role="tab" data-os="macos">macOS</button>
+      <button type="button" role="tab" data-os="arch">Arch</button>
+      <button type="button" role="tab" data-os="debian">Debian / Ubuntu</button>
+      <button type="button" role="tab" data-os="fedora">Fedora</button>
+      <button type="button" role="tab" data-os="linux">Other Linux</button>
+      <span class="detected" id="detected"></span>
+    </div>
+
+    <div class="panel" data-os="windows">
+      <h3>Windows 10 / 11</h3>
+      <div data-only="desktop">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-setup.exe">Download the installer</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-portable.exe">Portable .exe</a>
+        </p>
+        <p>The installer is for your user only and needs no admin rights. The portable file runs without
+          installing anything. Neither is code-signed, so SmartScreen may ask for confirmation on first run.</p>
+      </div>
+      <div data-only="tui">
+        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-windows-x86_64.zip">Download the .zip</a></p>
+        <p>It holds <code>katana-tui.exe</code>. Run it from Windows Terminal.</p>
+      </div>
+    </div>
+
+    <div class="panel" data-os="macos">
+      <h3>macOS 11+</h3>
+      <div data-only="desktop">
+        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-macos-universal.dmg">Download the .dmg</a></p>
+        <p>Universal, for Apple silicon and Intel. The app isn't notarized, so macOS refuses to open it the
+          first time: allow it in System Settings → Privacy &amp; Security → “Open Anyway”, or run</p>
+        <pre class="cmd"><code>xattr -dr com.apple.quarantine "/Applications/Katana Desktop.app"</code></pre>
+      </div>
+      <div data-only="tui">
+        <p>With Homebrew (built from source):</p>
+        <pre class="cmd"><code>brew install arkadyburyakov/tap/katana-tui</code></pre>
+        <p>Or <a href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-macos-universal.tar.gz">download the universal binary</a>.
+          It isn't notarized, so after unpacking:</p>
+        <pre class="cmd"><code>xattr -d com.apple.quarantine katana-tui</code></pre>
+      </div>
+    </div>
+
+    <div class="panel" data-os="arch">
+      <h3>Arch Linux and derivatives</h3>
+      <div data-only="desktop">
+        <p>From the AUR, prebuilt:</p>
+        <pre class="cmd"><code>yay -S katana-desktop-bin</code></pre>
+        <p>Or built from source:</p>
+        <pre class="cmd"><code>yay -S katana-desktop</code></pre>
+      </div>
+      <div data-only="tui">
+        <p>From the AUR, prebuilt:</p>
+        <pre class="cmd"><code>yay -S katana-tui-bin</code></pre>
+        <p>Or built from source:</p>
+        <pre class="cmd"><code>yay -S katana-tui</code></pre>
+      </div>
+    </div>
+
+    <div class="panel" data-os="debian">
+      <h3>Debian, Ubuntu, Mint, Pop!_OS (22.04+)</h3>
+      <div data-only="desktop">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop_1.1.0_amd64.deb">Download the .deb</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop_1.1.0_arm64.deb">arm64</a>
+        </p>
+        <p>Then, in the folder you saved it to:</p>
+        <pre class="cmd"><code>sudo apt install ./katana-desktop_*.deb</code></pre>
+      </div>
+      <div data-only="tui">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui_1.1.0_amd64.deb">Download the .deb</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui_1.1.0_arm64.deb">arm64</a>
+        </p>
+        <p>Then, in the folder you saved it to:</p>
+        <pre class="cmd"><code>sudo apt install ./katana-tui_*.deb</code></pre>
+      </div>
+    </div>
+
+    <div class="panel" data-os="fedora">
+      <h3>Fedora</h3>
+      <div data-only="desktop">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-1.x86_64.rpm">Download the .rpm</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-1.aarch64.rpm">aarch64</a>
+        </p>
+        <p>Then, in the folder you saved it to:</p>
+        <pre class="cmd"><code>sudo dnf install ./katana-desktop-*.rpm</code></pre>
+      </div>
+      <div data-only="tui">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-1.x86_64.rpm">Download the .rpm</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-1.aarch64.rpm">aarch64</a>
+        </p>
+        <p>Then, in the folder you saved it to:</p>
+        <pre class="cmd"><code>sudo dnf install ./katana-tui-*.rpm</code></pre>
+      </div>
+    </div>
+
+    <div class="panel" data-os="linux">
+      <h3>Other Linux</h3>
+      <div data-only="desktop">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-linux-x86_64.tar.gz">Download the .tar.gz</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-linux-aarch64.tar.gz">aarch64</a>
+        </p>
+        <p>The archive holds a <code>usr/</code> tree with the binary, the app-menu entry and the icon.
+          It needs <code>webkit2gtk-4.1</code> and glibc 2.35 or newer.</p>
+      </div>
+      <div data-only="tui">
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-linux-x86_64.tar.gz">Download the .tar.gz</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-linux-aarch64.tar.gz">aarch64</a>
+        </p>
+        <p>The archive holds a <code>usr/</code> tree with the <code>katana-tui</code> binary; it needs
+          glibc 2.35 or newer. With Homebrew on Linux, it builds from source:</p>
+        <pre class="cmd"><code>brew install arkadyburyakov/tap/katana-tui</code></pre>
+      </div>
+    </div>
+
+    <p class="more">
+      Every file and its checksum is on the
+      <a href="https://github.com/ArkadyBuryakov/katana-desktop/releases/latest">releases page</a>.
+      To build from source, see the
+      <a href="https://github.com/ArkadyBuryakov/katana-desktop#build--run">README</a>.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <p>
+    This is an independent fan project. It is not made, endorsed or supported by the developers of
+    Nonograms Katana. “Nonograms Katana” is their trademark, and the puzzles belong to their authors.
+  </p>
+  <p>
+    <a href="https://github.com/ArkadyBuryakov/katana-desktop">Source</a> under the
+    <a href="https://github.com/ArkadyBuryakov/katana-desktop/blob/main/LICENSE">MIT license</a>
+    · by <a href="https://buryakov.pro/">Arkady Buryakov</a>
+  </p>
+</footer>
+
+<!-- the key hints of the TUI page, like the bottom line of katana-tui -->
+<div id="keys" data-only="tui" aria-hidden="true">
+  <b>d</b> desktop page · <b>t</b> tui page · <b>1</b>–<b>6</b> system · <b>i</b> install
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -197,6 +197,10 @@ The tap step needs `TAP_SSH_PRIVATE_KEY`: the private half of a deploy key with 
 If only one of these steps fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`
 or `gh workflow run publish_homebrew.yml -f version=1.2.3`.
 
+The landing page at [katana.buryakov.pro](https://katana.buryakov.pro/) is the static `site/` directory
+(no build step; `python3 -m http.server -d site` to look at it). `wrangler.jsonc` deploys it to Cloudflare:
+`npx wrangler deploy`. Its download links name a version but follow the latest release by themselves.
+
 Debug builds can also serve the UI over HTTP for browser-based testing:
 `KATANA_DEV_HTTP=8766 cargo run` (add `KATANA_HEADLESS=1` to skip the window). IPC is then `POST /ipc`.
 

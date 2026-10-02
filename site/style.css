@@ -1,0 +1,190 @@
+/* The palette of the app itself (web/style.css, src/tui/theme.rs). */
+:root {
+  --bg: #f3ede2;
+  --panel: #fffaf2;
+  --ink: #2b2620;
+  --muted: #8a7f70;
+  --line: #ddd2c0;
+  --accent: #b5452b;
+  --accent-ink: #fff;
+  --card: #fff;
+  --shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 4px 14px rgba(60, 40, 20, .06);
+  --radius: 12px;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1b18;
+    --panel: #26231f;
+    --ink: #ece4d6;
+    --muted: #9d9282;
+    --line: #3b362f;
+    --card: #2b2823;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 var(--sans);
+}
+[hidden] { display: none !important; }
+html[data-mode=desktop] [data-only=tui], html[data-mode=tui] [data-only=desktop] { display: none !important; }
+a { color: var(--accent); }
+img { max-width: 100%; height: auto; display: block; }
+h1, h2, h3, p, figure { margin: 0; }
+code, kbd, pre { font-family: var(--mono); font-size: .9em; }
+kbd {
+  background: var(--card); border: 1px solid var(--line); border-radius: 5px;
+  padding: 0 5px; font-size: .82em;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- header */
+#topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 18px;
+  padding: 8px max(18px, calc((100% - 1080px) / 2));
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; text-decoration: none; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.modes { display: flex; gap: 4px; }
+.modes button { background: transparent; border: none; border-radius: 8px; padding: 6px 12px; color: var(--muted); }
+.modes button[aria-pressed=true] { background: var(--bg); color: var(--ink); }
+.spacer { flex: 1; }
+.plain { color: var(--muted); text-decoration: none; }
+.plain:hover { color: var(--ink); }
+
+/* ---------- layout */
+main, footer { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: center; padding: 56px 0 24px; }
+.herotext { display: flex; flex-direction: column; gap: 18px; }
+h1 { font-size: clamp(34px, 5vw, 48px); line-height: 1.1; letter-spacing: -.02em; }
+.lead { font-size: 18px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.meta { color: var(--muted); font-size: 14px; }
+.button {
+  display: inline-block; text-decoration: none; color: var(--ink);
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px;
+}
+.button:hover { border-color: var(--muted); }
+.button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.button.primary:hover { filter: brightness(1.08); }
+.shot { display: block; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); }
+
+.block { padding: 40px 0 0; }
+.block > h2 { font-size: 24px; margin-bottom: 18px; }
+.features { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.features article { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+.features h3 { font-size: 16px; margin-bottom: 4px; }
+.features p { color: var(--muted); font-size: 15px; }
+.gallery { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; text-align: center; }
+
+/* ---------- install */
+.tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
+.tabs button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+.tabs button:hover { border-color: var(--muted); }
+.tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.detected { color: var(--muted); font-size: 14px; margin-left: 6px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; }
+.panel h3 { font-size: 17px; margin-bottom: 12px; }
+.panel p { margin-bottom: 12px; }
+.panel div > :last-child { margin-bottom: 0; }
+.panel p .button { margin: 0 6px 4px 0; }
+/* without scripts every system is listed; with them, only the chosen one */
+.js .panel:not(.on) { display: none; }
+html:not(.js) .tabs { display: none; }
+.cmd {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 6px 6px 6px 14px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+}
+.cmd code { flex: 1; overflow-x: auto; padding: 4px 0; }
+.cmd code::before { content: "$ "; color: var(--muted); }
+.cmd button {
+  flex: none; padding: 3px 10px; font: 13px var(--sans);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--muted);
+}
+.cmd button:hover { color: var(--ink); border-color: var(--muted); }
+.more { color: var(--muted); font-size: 15px; }
+
+footer { margin-top: 56px; padding-top: 20px; padding-bottom: 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+footer p + p { margin-top: 8px; }
+#keys { display: none; }
+
+@media (max-width: 820px) {
+  .hero { grid-template-columns: 1fr; padding-top: 32px; gap: 24px; }
+  #topbar { gap: 12px; }
+  #topbar .plain[href="#install"] { display: none; }
+}
+
+/* ---------- the TUI page: one font, one size, boxes with their title on the border */
+/* always dark, like most terminals, whatever the system theme */
+html[data-mode=tui] {
+  --bg: #1d1b18; --panel: #26231f; --ink: #ece4d6; --muted: #9d9282; --line: #3b362f; --card: #2b2823;
+  --radius: 0; --shadow: none; scroll-padding-top: 56px; color-scheme: dark;
+}
+html[data-mode=tui] body { font: 15px/1.5 var(--mono); padding-bottom: 40px; }
+html[data-mode=tui] :is(code, kbd, pre, .cmd button) { font: inherit; }
+html[data-mode=tui] kbd { border: none; background: none; padding: 0; color: var(--accent); }
+html[data-mode=tui] :is(.button, .tabs button, .modes button, .cmd, .cmd button) { border-radius: 0; }
+html[data-mode=tui] #topbar { background: var(--panel); border-bottom: none; padding-top: 0; padding-bottom: 0; gap: 2ch; }
+html[data-mode=tui] .brand { color: var(--accent); font-weight: 400; }
+html[data-mode=tui] .brand img { display: none; }
+html[data-mode=tui] .modes { gap: 0; }
+html[data-mode=tui] .modes button { padding: 2px 1ch; color: var(--ink); }
+html[data-mode=tui] .modes button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+html[data-mode=tui] h1 { font-size: 28px; letter-spacing: 0; }
+html[data-mode=tui] h1::before { content: "$ "; color: var(--muted); font-weight: 400; }
+html[data-mode=tui] h1::after { content: "█"; color: var(--accent); margin-left: .3ch; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  html[data-mode=tui] h1::after { animation: none; }
+}
+html[data-mode=tui] .lead { font-size: inherit; }
+html[data-mode=tui] :is(.meta, figcaption, .features p, .more, .detected, footer) { font-size: inherit; }
+html[data-mode=tui] .button { background: var(--card); border: none; padding: 2px 2ch; }
+html[data-mode=tui] .button.primary { background: var(--accent); font-weight: 700; }
+html[data-mode=tui] a { color: #e0694c; }
+html[data-mode=tui] a.button, html[data-mode=tui] a.plain { color: var(--ink); }
+html[data-mode=tui] a.button.primary { color: var(--accent-ink); }
+html[data-mode=tui] a.brand { color: #e0694c; }
+html[data-mode=tui] .shot { border: 1px solid var(--line); position: relative; overflow: visible; }
+
+html[data-mode=tui] .block { position: relative; margin-top: 44px; padding: 22px 2ch 18px; border: 1px solid var(--line); }
+html[data-mode=tui] .block > h2 {
+  position: absolute; top: -.8em; left: 1ch; margin: 0; padding: 0 1ch;
+  background: var(--bg); color: var(--accent); font-size: inherit; text-transform: uppercase;
+}
+html[data-mode=tui] .features { gap: 18px 4ch; }
+html[data-mode=tui] .features article { background: none; padding: 0; }
+html[data-mode=tui] .features h3 { font-size: inherit; margin: 0; }
+html[data-mode=tui] .features h3::before { content: "▪ "; color: var(--accent); }
+html[data-mode=tui] .features p { padding-left: 2ch; }
+html[data-mode=tui] figcaption { text-align: left; }
+
+html[data-mode=tui] .tabs { gap: 0 1ch; }
+html[data-mode=tui] .tabs button { border: none; padding: 2px 1ch; counter-increment: os; }
+html[data-mode=tui] .tabs button::before { content: counter(os) " "; color: var(--accent); }
+html[data-mode=tui] .tabs button[aria-selected=true] { font-weight: 700; }
+html[data-mode=tui] .tabs button[aria-selected=true]::before { color: inherit; }
+html[data-mode=tui] .tabs { counter-reset: os; }
+html[data-mode=tui] .panel { background: none; border: none; padding: 0; margin-top: 18px; }
+html[data-mode=tui] .panel h3 { font-size: inherit; }
+html[data-mode=tui] .cmd { border: none; padding: 2px 1ch 2px 2ch; }
+html[data-mode=tui] .cmd button { border: none; background: none; padding: 2px 0; color: var(--accent); }
+html[data-mode=tui] .cmd button::before { content: "["; }
+html[data-mode=tui] .cmd button::after { content: "]"; }
+
+html[data-mode=tui] footer { border-top: none; margin-top: 32px; }
+html[data-mode=tui] #keys {
+  display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding: 4px max(18px, calc((100% - 1080px) / 2)); background: var(--bg); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-mode=tui] #keys b { color: var(--accent); font-weight: 400; }
+@media (hover: none) { html[data-mode=tui] #keys { display: none; } }

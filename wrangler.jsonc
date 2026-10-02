@@ -1,0 +1,8 @@
+// The landing page in site/, served by Cloudflare Workers static assets: `npx wrangler deploy`,
+// or connect the repository in the Cloudflare dashboard to deploy on every push to main.
+{
+  "name": "katana-site",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./site" },
+  "routes": [{ "pattern": "katana.buryakov.pro", "custom_domain": true }]
+}
