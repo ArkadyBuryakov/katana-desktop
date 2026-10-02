@@ -121,6 +121,7 @@ the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages, p
 with them and their `SHA256SUMS`, and pushes `packaging/aur/*` to the AUR with the new version and checksums.
 Tags like `v1.2.0-rc1` make a prerelease and skip the AUR. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
 repository secret: the private half of an SSH key added to the AUR account that maintains the packages.
+If only the AUR step fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`.
 
 Debug builds can also serve the UI over HTTP for browser-based testing:
 `KATANA_DEV_HTTP=8766 cargo run` (add `KATANA_HEADLESS=1` to skip the window). IPC is then `POST /ipc`.

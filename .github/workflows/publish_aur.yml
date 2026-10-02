@@ -1,0 +1,74 @@
+# Pushes packaging/aur/* to the AUR for a published release. release.yml calls it once the
+# GitHub release exists; run it by hand to (re)publish one: gh workflow run publish_aur.yml -f version=1.2.3
+name: Publish to AUR
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to publish (e.g. 1.2.3)"
+        required: true
+
+jobs:
+  publish:
+    strategy:
+      matrix:
+        pkg: [katana-desktop, katana-desktop-bin]
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - run: pacman -Syu --noconfirm base-devel git openssh pacman-contrib namcap
+      - uses: actions/checkout@v5
+      - name: Fill in the version and checksums
+        working-directory: packaging/aur/${{ matrix.pkg }}
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${RELEASE_VERSION#v}/; s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          # makepkg refuses to run as root, and installs the dependencies with sudo
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder .
+          runuser -u builder -- updpkgsums
+          runuser -u builder -- sh -c 'makepkg --printsrcinfo > .SRCINFO'
+      - name: Test build, lint and install
+        working-directory: packaging/aur/${{ matrix.pkg }}
+        run: |
+          runuser -u builder -- makepkg -sf --noconfirm
+          namcap PKGBUILD *.pkg.tar.zst
+          pacman -U --noconfirm *.pkg.tar.zst
+          test -x /usr/bin/katana-desktop
+      - name: Push to the AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          # Explicit paths only: ssh resolves ~ from the passwd entry (/root), while the shell
+          # resolves it from $HOME (/github/home); they differ in container jobs.
+          # Host keys are pinned rather than keyscanned.
+          mkdir -p /tmp/ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > /tmp/ssh/aur
+          chmod 600 /tmp/ssh/aur
+          cat > /tmp/ssh/known_hosts <<'KEYS'
+          aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN
+          aur.archlinux.org ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLMiLrP8pVi5BFX2i3vepSUnpedeiewE5XptnUnau+ZoeUOPkpoCgZZuYfpaIQfhhJJI5qgnjJmr4hyJbe/zxow=
+          KEYS
+          export GIT_SSH_COMMAND="ssh -i /tmp/ssh/aur -o UserKnownHostsFile=/tmp/ssh/known_hosts -o IdentitiesOnly=yes"
+          git config --global user.name "Arkady Buryakov"
+          git config --global user.email "arkady@buryakov.pro"
+          git clone "ssh://aur@aur.archlinux.org/${{ matrix.pkg }}.git" /tmp/aur
+          cp packaging/aur/${{ matrix.pkg }}/PKGBUILD packaging/aur/${{ matrix.pkg }}/.SRCINFO /tmp/aur/
+          cd /tmp/aur
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "Update to ${RELEASE_VERSION#v}"
+            git push origin HEAD:master
+          fi

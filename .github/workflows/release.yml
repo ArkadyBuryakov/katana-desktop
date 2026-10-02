@@ -99,19 +99,7 @@ jobs:
   aur:
     needs: release
     if: ${{ !contains(github.ref_name, '-') }}
-    strategy:
-      matrix:
-        pkg: [katana-desktop, katana-desktop-bin]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: sed -i "s/^pkgver=.*/pkgver=${GITHUB_REF_NAME#v}/; s/^pkgrel=.*/pkgrel=1/" packaging/aur/${{ matrix.pkg }}/PKGBUILD
-      - uses: KSXGitHub/github-actions-deploy-aur@v4
-        with:
-          pkgname: ${{ matrix.pkg }}
-          pkgbuild: packaging/aur/${{ matrix.pkg }}/PKGBUILD
-          updpkgsums: true
-          commit_username: Arkady Buryakov
-          commit_email: arkady@buryakov.pro
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: Update to ${{ github.ref_name }}
+    uses: ./.github/workflows/publish_aur.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit
