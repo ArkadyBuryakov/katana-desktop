@@ -6,6 +6,12 @@ An unofficial native Windows/macOS/Linux client for the user-created puzzles of
 > This is an independent fan project. It is not made, endorsed or supported by the developers of
 > Nonograms Katana. "Nonograms Katana" is their trademark, and the puzzles belong to their authors.
 
+<img alt="Solving a colour puzzle" src="https://github.com/user-attachments/assets/84f59bfe-5d3c-410b-96d0-a70395c9e552" />
+
+| Browse and continue | Dark theme, after a Help |
+| --- | --- |
+| <img alt="Puzzle list with boards in progress and solved puzzles" src="https://github.com/user-attachments/assets/24f238b2-f04f-4481-a661-4c6b7921e036" /> | <img alt="Black and white puzzle in the dark theme with a Help highlight" src="https://github.com/user-attachments/assets/a2f19438-accb-4760-a4f7-355c74d928bf" /> |
+
 It's a single Rust binary (~4 MB) built with [wry](https://github.com/tauri-apps/wry)/[tao](https://github.com/tauri-apps/tao).
 The UI runs in the system webview (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) and is embedded in the binary.
 There's no local server: the page talks to Rust over IPC.
