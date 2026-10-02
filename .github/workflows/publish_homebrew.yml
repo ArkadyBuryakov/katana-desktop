@@ -1,0 +1,73 @@
+# Pushes packaging/homebrew/katana-tui.rb to the Homebrew tap for a published release. release.yml
+# calls it once the GitHub release exists; run it by hand to (re)publish one:
+# gh workflow run publish_homebrew.yml -f version=1.2.3
+name: Publish to Homebrew tap
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to publish (e.g. 1.2.3)"
+        required: true
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fill in the version and checksum
+        run: |
+          version="${RELEASE_VERSION#v}"
+          url="https://github.com/ArkadyBuryakov/katana-desktop/archive/v$version.tar.gz"
+          curl -fsSL "$url" -o /tmp/katana.tar.gz
+          sha256=$(shasum -a 256 /tmp/katana.tar.gz | cut -d' ' -f1)
+          sed -i.bak -e "s|^  url \".*\"|  url \"$url\"|" -e "s|^  sha256 \".*\"|  sha256 \"$sha256\"|" \
+            packaging/homebrew/katana-tui.rb
+          rm packaging/homebrew/katana-tui.rb.bak
+          grep -q "v$version.tar.gz" packaging/homebrew/katana-tui.rb
+          grep -q "$sha256" packaging/homebrew/katana-tui.rb
+      - name: Build, test and smoke test
+        run: |
+          # Homebrew refuses to install from a bare file path: formulas must live in a tap,
+          # so ours is staged in a throwaway one
+          brew tap-new --no-git arkadyburyakov/test
+          cp packaging/homebrew/katana-tui.rb "$(brew --repository arkadyburyakov/test)/Formula/"
+          brew install --build-from-source arkadyburyakov/test/katana-tui
+          brew test arkadyburyakov/test/katana-tui
+          katana-tui --version | grep -q "${RELEASE_VERSION#v}"
+      - name: Push to the tap
+        env:
+          TAP_SSH_PRIVATE_KEY: ${{ secrets.TAP_SSH_PRIVATE_KEY }}
+        run: |
+          # Host keys are pinned rather than keyscanned, as in the AUR workflow: these are
+          # GitHub's published SSH host keys.
+          mkdir -p /tmp/ssh
+          printf '%s\n' "$TAP_SSH_PRIVATE_KEY" > /tmp/ssh/tap
+          chmod 600 /tmp/ssh/tap
+          cat > /tmp/ssh/known_hosts <<'KEYS'
+          github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+          KEYS
+          export GIT_SSH_COMMAND="ssh -i /tmp/ssh/tap -o UserKnownHostsFile=/tmp/ssh/known_hosts -o IdentitiesOnly=yes"
+          git config --global user.name "Arkady Buryakov"
+          git config --global user.email "arkady@buryakov.pro"
+          git clone git@github.com:ArkadyBuryakov/homebrew-tap.git /tmp/tap
+          mkdir -p /tmp/tap/Formula
+          cp packaging/homebrew/katana-tui.rb /tmp/tap/Formula/katana-tui.rb
+          cd /tmp/tap
+          git add Formula/katana-tui.rb
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "katana-tui ${RELEASE_VERSION#v}"
+            git push origin HEAD:main
+          fi
