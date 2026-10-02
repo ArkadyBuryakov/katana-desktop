@@ -751,6 +751,15 @@ const game = {
   },
 
   // ---- mouse strokes
+  /** Length of the run of cells showing the same as (x, y), along its row or its column. */
+  runLen(x, y, horiz) {
+    const dx = +horiz, dy = +!horiz, v = this.view(y * this.w + x, x, y);
+    const same = (x, y) => x >= 0 && y >= 0 && x < this.w && y < this.h && this.view(y * this.w + x, x, y) === v;
+    let n = 1;
+    for (let k = 1; same(x + k * dx, y + k * dy); k++) n++;
+    for (let k = 1; same(x - k * dx, y - k * dy); k++) n++;
+    return n;
+  },
   applyStroke() {
     const d = this.drag;
     for (const [i, before] of d.changed) this.cells[i] = before; // undo the previous preview
@@ -758,6 +767,7 @@ const game = {
     const { sx, sy } = d;
     let { cx, cy } = d;
     if (Math.abs(cx - sx) >= Math.abs(cy - sy)) cy = sy; else cx = sx;
+    d.horiz = cy === sy;
     const x0 = Math.min(sx, cx), x1 = Math.max(sx, cx), y0 = Math.min(sy, cy), y1 = Math.max(sy, cy);
     d.len = x1 - x0 + y1 - y0 + 1;
     for (let y = y0; y <= y1; y++) {
@@ -823,20 +833,32 @@ const game = {
       }
       x = nx; y = ny;
       this.cursor = { x, y };
-      if (this.spaceStroke) this.applySpace(false);
+      if (this.spaceStroke) this.applySpace(false, !!sx);
     }
     this.kb = true;
     this.revealCursor();
     this.draw();
   },
-  /** Space pressed (first=true) or cursor moved while space is held. */
-  applySpace(first) {
+  /** Space pressed (first=true) or cursor moved (horizontally or not) while space is held. */
+  applySpace(first, horiz) {
     const c = this.cursor, kind = this.cursorKind();
     if (kind === "cell") {
       const i = c.y * this.w + c.x;
-      if (first) this.spaceStroke = { kind, value: this.cycleValue(this.cells[i]), changed: new Map() };
+      if (first) this.spaceStroke = { kind, value: this.cycleValue(this.cells[i]), changed: new Map(), len: 1 };
       const st = this.spaceStroke;
-      if (st.kind !== "cell" || this.cells[i] === st.value) return;
+      if (st.kind !== "cell") return;
+      if (!first) {
+        // the counted length starts over, from the cell the cursor turned at, when the movement changes direction
+        const p = horiz ? c.x : c.y, line = horiz ? c.y : c.x;
+        if (st.horiz !== horiz || st.line !== line) {
+          st.horiz = horiz; st.line = line;
+          st.lo = st.hi = (horiz ? st.at.y : st.at.x) === line ? (horiz ? st.at.x : st.at.y) : p;
+        }
+        st.lo = Math.min(st.lo, p); st.hi = Math.max(st.hi, p);
+        st.len = st.hi - st.lo + 1;
+      }
+      st.at = { x: c.x, y: c.y };
+      if (this.cells[i] === st.value) return;
       if (!st.changed.has(i)) st.changed.set(i, this.cells[i]);
       this.cells[i] = st.value;
       this.updateDone([c.y], [c.x]);
@@ -1259,16 +1281,22 @@ const game = {
       if (px >= right - 1 && py >= bottom - 1) cursorBox(px, py, cs, cs);
     }
 
-    // corner: size / position / drag length
+    // corner: size / position / stroke length
     const kx = leftX, ky = topY, kw = right - kx, kh = bottom - ky;
     c.fillStyle = panel;
     c.fillRect(kx, ky, kw, kh);
     c.fillStyle = muted;
     c.font = `600 ${Math.max(10, Math.min(18, kw / 6))}px system-ui, sans-serif`;
-    if (this.drag && this.drag.len > 1) {
+    const st = this.drag || this.spaceStroke;
+    if (st && st.len > 1) {
+      // stroke length, and the length of the run it ended up part of when that is longer
+      let text = String(st.len);
+      const run = (this.drag ? st.to : st.value) === EMPTY ? st.len
+        : this.drag ? this.runLen(st.sx, st.sy, st.horiz) : this.runLen(st.at.x, st.at.y, st.horiz);
+      if (run !== st.len) text += "/" + run;
       c.fillStyle = ink;
-      c.font = `700 ${Math.max(14, Math.min(40, kw / 3, kh / 2))}px system-ui, sans-serif`;
-      c.fillText(String(this.drag.len), kx + kw / 2, ky + kh / 2);
+      c.font = `700 ${Math.max(14, Math.min(40, kw / Math.max(3, text.length * 0.7), kh / 2))}px system-ui, sans-serif`;
+      c.fillText(text, kx + kw / 2, ky + kh / 2, kw - 6);
     } else if (focus && fx >= 0 && fy >= 0) {
       c.fillText(`${fx + 1}, ${fy + 1}`, kx + kw / 2, ky + kh / 2);
     } else {
