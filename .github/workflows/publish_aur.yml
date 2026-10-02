@@ -18,13 +18,14 @@ jobs:
   publish:
     strategy:
       matrix:
-        pkg: [katana-desktop, katana-desktop-bin]
+        pkg: [katana-desktop, katana-desktop-bin, katana-tui, katana-tui-bin]
     runs-on: ubuntu-latest
     container: archlinux:latest
     permissions:
       contents: read
     env:
       RELEASE_VERSION: ${{ inputs.version }}
+      PKG: ${{ matrix.pkg }}
     steps:
       - run: pacman -Syu --noconfirm base-devel git openssh pacman-contrib namcap
       - uses: actions/checkout@v5
@@ -44,7 +45,7 @@ jobs:
           runuser -u builder -- makepkg -sf --noconfirm
           namcap PKGBUILD *.pkg.tar.zst
           pacman -U --noconfirm *.pkg.tar.zst
-          test -x /usr/bin/katana-desktop
+          test -x "/usr/bin/${PKG%-bin}"
       - name: Push to the AUR
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

@@ -16,6 +16,9 @@ It's a single Rust binary (~4 MB) built with [wry](https://github.com/tauri-apps
 The UI runs in the system webview (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) and is embedded in the binary.
 There's no local server: the page talks to Rust over IPC.
 
+There is also `katana-tui`, the same app [in a terminal](#in-a-terminal): a separate binary, packaged on its own,
+that needs no webview.
+
 ## Install
 
 Download a package for your system from [Releases](https://github.com/ArkadyBuryakov/katana-desktop/releases/latest):
@@ -29,6 +32,17 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
   macOS refuses to open it: allow it in System Settings → Privacy & Security → "Open Anyway",
   or run `xattr -dr com.apple.quarantine "/Applications/Katana Desktop.app"`.
 
+`katana-tui` is a separate download on the same page, a single program with no dependencies:
+
+- **Arch Linux and derivatives:** `yay -S katana-tui-bin` (prebuilt) or `yay -S katana-tui` (built from source).
+- **Debian, Ubuntu, Mint, Pop!_OS (22.04+):** `katana-tui_<version>_amd64.deb`.
+- **Fedora:** `katana-tui-<version>-1.x86_64.rpm`.
+- **Other Linux:** `katana-tui-<version>-linux-<arch>.tar.gz` holds a `usr/` tree.
+- **Windows:** `katana-tui-<version>-windows-x86_64.zip` holds `katana-tui.exe`; run it from Windows Terminal.
+- **macOS or Linux with Homebrew:** `brew install arkadyburyakov/tap/katana-tui` (built from source).
+- **macOS 11+:** `katana-tui-<version>-macos-universal.tar.gz` holds the `katana-tui` binary. It isn't notarized either:
+  `xattr -d com.apple.quarantine katana-tui` after unpacking.
+
 ## Build & run
 
 ```sh
@@ -36,6 +50,15 @@ make              # build target/release/katana-desktop
 make install      # Linux: ~/.local/bin + app-menu entry; macOS: ~/Applications/Katana Desktop.app
 make uninstall    # remove them again (your data is kept)
 make run | test | clean
+```
+
+The terminal frontend is built and installed on its own, and needs neither a webview nor GTK:
+
+```sh
+make build-tui      # build target/release/katana-tui
+make install-tui    # into ~/.local/bin (PREFIX and DESTDIR as above)
+make uninstall-tui
+make run-tui
 ```
 
 Variables: on Linux `PREFIX` (default `~/.local`) and `DESTDIR` for packaging, e.g.
@@ -58,8 +81,11 @@ Variables: on Linux `PREFIX` (default `~/.local`) and `DESTDIR` for packaging, e
   - `dist/KatanaDesktop-<version>-portable.exe`: a single file that runs without installing anything.
     It unpacks itself to a temp folder, which is removed when you close the app.
 
-  Both keep progress and login in `%LOCALAPPDATA%\katana-desktop`, so they share them with each other.
-  Neither is code-signed, so Windows SmartScreen may ask for confirmation on first run.
+  `make windows-tui` (needs `zip`, not `nsis`) writes `dist/katana-tui-<version>-windows-x86_64.zip`
+  with `katana-tui.exe`.
+
+  All of them keep progress and login in `%LOCALAPPDATA%\katana-desktop`, so they share them with each other.
+  None is code-signed, so Windows SmartScreen may ask for confirmation on first run.
 
 Data (session, catalog cache, puzzle images, in-progress boards) lives in
 `~/.local/share/katana-desktop` on Linux, `~/Library/Application Support/katana-desktop` on macOS
@@ -94,6 +120,43 @@ Sidebar helpers, all off by default except the first:
   and highlights that line; reveals one random cell. The highlight stays until your next move.
   The button counts the helps used on the puzzle; the count is saved with the board and shown when you solve it.
 
+## In a terminal
+
+`katana-tui` is the whole app in a terminal, built with [ratatui](https://ratatui.rs): the puzzle list
+with its filters, boards in progress, the account, and the same board with the same helpers. It uses the
+same data directory, so the login, the puzzle list and every board are shared with the desktop app, and
+a board started in one continues in the other. Run one at a time: each keeps the account and the open
+board in memory and saves over what the other wrote.
+Its own settings (filters, zoom, theme) are in `tui.json` there.
+
+It wants a terminal with 24-bit colour and mouse support; without `COLORTERM=truecolor` it falls back to
+256 colours. The theme follows the terminal when it says whether it is dark (`COLORFGBG`), and can be
+switched in the account menu.
+
+The list is driven by the keys shown at the bottom of the screen, or by the mouse; the picture of the
+selected puzzle (a solved one, or your own board in progress) is shown beside it when the window is
+wide enough. On the board everything from the table above works, with these differences:
+
+| | |
+| --- | --- |
+| `Space` | hold-and-move needs a terminal that reports key releases (the kitty keyboard protocol: kitty, foot, Ghostty, Alacritty, ...) |
+| `Enter` | starts a line at the cursor and ends it: the same as holding `Space`, in any terminal |
+| Shift+arrows or `H J K L` | move 5 |
+| `u`, `U` | undo, redo (`Ctrl+Z`, `Ctrl+Y` work too) |
+| `+` `-`, `f` | zoom, auto-fit; `0` is auto-fit too when the puzzle has fewer than ten colours |
+| `c`, `R`, `?` | Check, Reset, Help |
+| `n`, `e`, `g` | the three helpers |
+| `Esc` or `q` | back to the list |
+
+Cells can't be smaller than two characters, so a big puzzle scrolls under its clues instead of shrinking:
+the wheel scrolls (Shift: sideways), Ctrl+wheel zooms, middle-drag pans, and the keyboard cursor keeps
+itself in view. With no room for grid lines, cells and 5×5 blocks are told apart by shade.
+
+Crossed cells are drawn with the Nerd Font ✕ (`nf-oct-x`) when fontconfig lists a Nerd Font, and with `×`
+otherwise; `"nerd_font": true` or `false` in `tui.json` settles it by hand.
+
+If Space misbehaves, `KATANA_KEY_RELEASE=0` (or `1`) overrides what the terminal reports about key releases.
+
 ## What syncs
 
 An account is optional. Without one, solves and boards are kept on this device only. When you log in,
@@ -123,11 +186,16 @@ See `src/protocol.rs`. `cargo test` covers the format. With `KATANA_SAMPLES=<dir
 ## Development
 
 To release: `make release patch` (or `minor`, `major`, `rc` for a release candidate, or an exact `x.y.z` / `x.y.z-rcN`), then push the tag it prints. `.github/workflows/release.yml` then builds
-the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages, publishes a GitHub release
-with them and their `SHA256SUMS`, and pushes `packaging/aur/*` to the AUR with the new version and checksums.
-Tags like `v1.2.0-rc1` make a prerelease and skip the AUR. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
+the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages of both `katana-desktop` and
+`katana-tui`, publishes a GitHub release with them and their `SHA256SUMS`, and pushes `packaging/aur/*`
+(four packages) to the AUR with the new version and checksums.
+It also builds `packaging/homebrew/katana-tui.rb` and pushes it to the
+[Homebrew tap](https://github.com/ArkadyBuryakov/homebrew-tap).
+Tags like `v1.2.0-rc1` make a prerelease and skip the AUR and the tap. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
 repository secret: the private half of an SSH key added to the AUR account that maintains the packages.
-If only the AUR step fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`.
+The tap step needs `TAP_SSH_PRIVATE_KEY`: the private half of a deploy key with write access to the tap.
+If only one of these steps fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`
+or `gh workflow run publish_homebrew.yml -f version=1.2.3`.
 
 Debug builds can also serve the UI over HTTP for browser-based testing:
 `KATANA_DEV_HTTP=8766 cargo run` (add `KATANA_HEADLESS=1` to skip the window). IPC is then `POST /ipc`.

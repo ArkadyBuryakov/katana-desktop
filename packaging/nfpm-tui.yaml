@@ -1,0 +1,22 @@
+# .deb and .rpm of katana-tui from the tree `make install-tui PREFIX=/usr DESTDIR=stage-tui` leaves
+# in stage-tui/. VERSION and ARCH (amd64 | arm64) come from the environment, see .github/workflows/release.yml.
+name: katana-tui
+version: ${VERSION}
+arch: ${ARCH}
+platform: linux
+section: games
+priority: optional
+maintainer: Arkady Buryakov <arkady@buryakov.pro>
+description: Unofficial terminal client for Nonograms Katana user puzzles, synced with your Katana account
+homepage: https://github.com/ArkadyBuryakov/katana-desktop
+license: MIT
+contents:
+  - src: stage-tui/usr/bin/katana-tui
+    dst: /usr/bin/katana-tui
+  - src: LICENSE
+    dst: /usr/share/doc/katana-tui/copyright
+overrides:
+  deb:
+    depends: [libc6, libgcc-s1]
+  rpm:
+    depends: [glibc, libgcc]

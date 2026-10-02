@@ -4,6 +4,12 @@
 #   make install         install for the current user (Linux: ~/.local, macOS: ~/Applications)
 #   make uninstall       remove what `make install` put in place (your data is kept)
 #   make run | test | clean
+#
+# katana-tui, the terminal frontend, is built and installed on its own (it needs no webview):
+#   make build-tui | run-tui
+#   make install-tui     install it into $(PREFIX)/bin (~/.local/bin)
+#   make uninstall-tui
+#
 #   make release ...     set the version, commit and tag; pushing the tag publishes the release
 #                        major|minor|patch bumps that part (zeroing the smaller ones); on an -rcN
 #                          version it releases that version instead, if it is already such a bump
@@ -12,6 +18,7 @@
 #                        (V=... works as well)
 #   make windows         cross-build dist/KatanaDesktop-<version>-setup.exe and -portable.exe
 #                        (needs mingw-w64-gcc, nsis and `rustup target add x86_64-pc-windows-gnu`)
+#   make windows-tui     cross-build dist/katana-tui-<version>-windows-x86_64.zip (needs zip, not nsis)
 #
 # Linux system-wide:   make && sudo make install PREFIX=/usr/local
 # macOS elsewhere:     make install APPDIR=/Applications
@@ -19,6 +26,7 @@
 NAME    := katana-desktop
 APPNAME := Katana Desktop
 BIN     := target/release/$(NAME)
+TUI     := target/release/katana-tui
 UNAME   := $(shell uname -s)
 
 PREFIX  ?= $(HOME)/.local
@@ -27,26 +35,44 @@ BINDIR  := $(DESTDIR)$(PREFIX)/bin
 DATADIR := $(DESTDIR)$(PREFIX)/share
 APPDIR  ?= $(HOME)/Applications
 
-SOURCES := Cargo.toml Cargo.lock build.rs $(wildcard src/*.rs) $(wildcard web/*)
+SOURCES := Cargo.toml Cargo.lock build.rs $(wildcard src/*.rs) $(wildcard src/tui/*.rs) $(wildcard web/*)
 
 .PHONY: all build run test clean install uninstall bundle windows release
+.PHONY: build-tui run-tui install-tui uninstall-tui windows-tui
 
 all: build
 
 build: $(BIN)
 
 $(BIN): $(SOURCES)
-	cargo build --release
+	cargo build --release --bin $(NAME)
 
 run:
 	cargo run --release
+
+build-tui: $(TUI)
+
+$(TUI): $(SOURCES)
+	cargo build --release --no-default-features --features tui --bin katana-tui
+
+run-tui:
+	cargo run --release --no-default-features --features tui --bin katana-tui
+
+install-tui: $(TUI)
+	install -d "$(BINDIR)"
+	install -m755 $(TUI) "$(BINDIR)/katana-tui"
+	@echo "Installed $(PREFIX)/bin/katana-tui"
+
+uninstall-tui:
+	rm -f "$(BINDIR)/katana-tui"
+	@echo "Uninstalled. Your data is kept."
 
 test:
 	cargo test
 
 clean:
 	cargo clean
-	rm -f dist/KatanaDesktop-*.exe  # only the build outputs: dist may be a symlink to a share
+	rm -f dist/KatanaDesktop-*.exe dist/katana-tui-*.zip  # only the build outputs: dist may be a symlink to a share
 
 # ---- Releases: .github/workflows/release.yml builds and publishes everything for a pushed v* tag
 # `make release patch`: the word after `release` is the version, not a target to build
@@ -104,7 +130,7 @@ NSIS_DEFS     = -V2 -DVERSION=$(VERSION) -DFILEVERSION=$(firstword $(subst -, ,$
 windows: $(WIN_SETUP) $(WIN_PORTABLE)
 
 $(WIN_EXE): $(SOURCES)
-	cargo build --release --target $(WIN_TARGET)
+	cargo build --release --target $(WIN_TARGET) --bin $(NAME)
 
 $(WIN_STAGE)/$(NAME).exe: $(WIN_EXE)
 	rm -rf $(WIN_STAGE) && mkdir -p $(WIN_STAGE)
@@ -119,6 +145,21 @@ $(WIN_SETUP): $(WIN_STAGE)/$(NAME).exe installer/setup.nsi installer/wizard.bmp 
 $(WIN_PORTABLE): $(WIN_STAGE)/$(NAME).exe installer/portable.nsi web/icon.ico
 	mkdir -p dist
 	makensis $(NSIS_DEFS) -DOUTFILE=$(abspath $@) installer/portable.nsi
+	@echo "Built $@"
+
+# katana-tui for Windows is a single console program: no installer, just the .exe in a .zip
+WIN_TUI_EXE := target/$(WIN_TARGET)/release/katana-tui.exe
+WIN_TUI     := dist/katana-tui-$(VERSION)-windows-x86_64.zip
+
+windows-tui: $(WIN_TUI)
+
+$(WIN_TUI_EXE): $(SOURCES)
+	cargo build --release --target $(WIN_TARGET) --no-default-features --features tui --bin katana-tui
+
+$(WIN_TUI): $(WIN_TUI_EXE) LICENSE
+	mkdir -p dist
+	rm -f $@
+	zip -j $@ $(WIN_TUI_EXE) LICENSE
 	@echo "Built $@"
 
 ifeq ($(UNAME),Darwin)

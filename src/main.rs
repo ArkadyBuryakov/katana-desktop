@@ -2,9 +2,6 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod protocol;
-mod store;
-
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -15,7 +12,8 @@ use tao::window::WindowBuilder;
 use wry::WebViewBuilder;
 use wry::http::{Request, Response, header::CONTENT_TYPE};
 
-use store::Store;
+use katana_desktop::protocol;
+use katana_desktop::store::Store;
 
 const SCHEME: &str = "katana";
 /// Where the custom scheme is served: WebView2 (Windows) maps custom schemes to

@@ -4,21 +4,40 @@ version = "1.0.0"
 edition = "2024"
 license = "MIT"
 description = "Unofficial desktop client for Nonograms Katana user puzzles"
+default-run = "katana-desktop"
+
+[[bin]]
+name = "katana-desktop"
+path = "src/main.rs"
+required-features = ["gui"]
+
+# the terminal frontend: `cargo build --no-default-features --features tui` needs no webview
+[[bin]]
+name = "katana-tui"
+path = "src/tui/main.rs"
+required-features = ["tui"]
+
+[features]
+default = ["gui", "tui"]
+gui = ["dep:tao", "dep:wry", "dep:muda"]
+tui = ["dep:ratatui", "dep:unicode-width"]
 
 [dependencies]
 base64 = "0.23.1"
 dirs = "7.0.0"
 flate2 = "1.1.10"
 png = "0.18.1"
+ratatui = { version = "0.30", optional = true, default-features = false, features = ["crossterm"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"
-tao = "0.37.1"
+tao = { version = "0.37.1", optional = true }
+unicode-width = { version = "0.2", optional = true }
 ureq = "3.4.2"
-wry = "0.57.0"
+wry = { version = "0.57.0", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-muda = "0.17"
+muda = { version = "0.17", optional = true }
 
 [profile.release]
 opt-level = 3
