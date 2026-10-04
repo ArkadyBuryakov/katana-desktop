@@ -115,6 +115,8 @@ Sidebar helpers, all off by default except the first:
 - **Cross gaps around solved numbers** crosses the cells next to a block that can't grow any further,
   everything between two solved neighbouring numbers, and everything between the border and a solved
   first or last number.
+- **Highlight impossible lines** tints the numbers of a row or column red once they can no longer
+  fit what is filled in and crossed there.
 - **Help** (bottom of the sidebar, also when collapsed) does the first of these that applies:
   fixes one mistake; fills in a block, part of a block or a gap that a single row or column gives away,
   and highlights that line; reveals one random cell. The highlight stays until your next move.

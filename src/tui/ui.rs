@@ -816,6 +816,7 @@ fn play(ui: &mut Ui, app: &mut App) {
             &board::Look {
                 hover: app.hover,
                 auto_clues: app.settings.auto_clues,
+                show_bad: app.settings.show_bad,
                 cross: app.cross,
             },
         ),
@@ -968,6 +969,12 @@ fn sidebar(ui: &mut Ui, app: &App, r: Rect) {
             app.settings.auto_gaps,
             "Cross gaps around solved numbers",
             Act::AutoGaps,
+        ),
+        (
+            "i",
+            app.settings.show_bad,
+            "Highlight impossible lines",
+            Act::ShowBad,
         ),
     ] {
         let lines = wrap(label, w.saturating_sub(6));

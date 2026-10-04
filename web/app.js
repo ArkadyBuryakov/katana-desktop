@@ -631,7 +631,8 @@ const game = {
   },
   /**
    * done[k]: clue number k is solved. gaps: cells that must be empty because of the solved
-   * numbers (the caller skips the ones that aren't unknown).
+   * numbers (the caller skips the ones that aren't unknown). bad: no arrangement of the
+   * numbers fits what the line already holds.
    */
   doneFor(line, clue) {
     const m = clue.length, n = line.length;
@@ -642,9 +643,9 @@ const game = {
       span(0, n);
       return { done, full: true, gaps };
     }
-    if (!m) return { done, full: false, gaps };
+    if (!m) return { done, full: false, gaps, bad: true }; // filled cells in a line without numbers
     const sol = solveLine(line, clue);
-    if (!sol) return { done, full: false, gaps }; // the line contradicts its clue: claim nothing
+    if (!sol) return { done, full: false, gaps, bad: true }; // the line contradicts its clue: claim nothing
     // A block is a solved number when, across all valid arrangements, the only clue
     // placement covering it is one number sitting exactly on it. This catches blocks
     // closed by crosses/edges/other colours, and also full-length blocks next to
@@ -833,35 +834,52 @@ const game = {
       }
       x = nx; y = ny;
       this.cursor = { x, y };
-      if (this.spaceStroke) this.applySpace(false, !!sx);
+      if (this.spaceStroke) this.applySpace(false);
     }
     this.kb = true;
     this.revealCursor();
     this.draw();
   },
-  /** Space pressed (first=true) or cursor moved (horizontally or not) while space is held. */
-  applySpace(first, horiz) {
+  /** Space pressed (first=true) or cursor moved while space is held. */
+  applySpace(first) {
     const c = this.cursor, kind = this.cursorKind();
     if (kind === "cell") {
-      const i = c.y * this.w + c.x;
-      if (first) this.spaceStroke = { kind, value: this.cycleValue(this.cells[i]), changed: new Map(), len: 1 };
+      const w = this.w, i = c.y * w + c.x;
+      if (first) this.spaceStroke = { kind, value: this.cycleValue(this.cells[i]), changed: new Map(), len: 1, path: [] };
       const st = this.spaceStroke;
       if (st.kind !== "cell") return;
-      if (!first) {
-        // the counted length starts over, from the cell the cursor turned at, when the movement changes direction
-        const p = horiz ? c.x : c.y, line = horiz ? c.y : c.x;
-        if (st.horiz !== horiz || st.line !== line) {
-          st.horiz = horiz; st.line = line;
-          st.lo = st.hi = (horiz ? st.at.y : st.at.x) === line ? (horiz ? st.at.x : st.at.y) : p;
+      const path = st.path, rows = [c.y], cols = [c.x];
+      if (path.length >= 2 && path[path.length - 2] === i) {
+        // back onto the cell the cursor came from: the one it leaves is as it was before
+        const left = path.pop();
+        if (!path.includes(left) && st.changed.has(left)) {
+          this.cells[left] = st.changed.get(left);
+          st.changed.delete(left);
+          rows.push(Math.floor(left / w)); cols.push(left % w);
         }
-        st.lo = Math.min(st.lo, p); st.hi = Math.max(st.hi, p);
-        st.len = st.hi - st.lo + 1;
+      } else if (path[path.length - 1] !== i) path.push(i);
+      // the counted length is that of the last straight part of the path
+      if (path.length >= 2) {
+        const prev = path[path.length - 2];
+        if (Math.floor(prev / w) === c.y) st.horiz = true;
+        else if (prev % w === c.x) st.horiz = false;
+      }
+      st.len = 1;
+      if (st.horiz !== undefined) {
+        const pos = (k) => st.horiz ? [k % w, Math.floor(k / w)] : [Math.floor(k / w), k % w];
+        const [p, line] = pos(i);
+        let lo = p, hi = p;
+        for (let k = path.length - 1; k >= 0 && pos(path[k])[1] === line; k--) {
+          lo = Math.min(lo, pos(path[k])[0]); hi = Math.max(hi, pos(path[k])[0]);
+        }
+        st.len = hi - lo + 1;
       }
       st.at = { x: c.x, y: c.y };
-      if (this.cells[i] === st.value) return;
-      if (!st.changed.has(i)) st.changed.set(i, this.cells[i]);
-      this.cells[i] = st.value;
-      this.updateDone([c.y], [c.x]);
+      if (this.cells[i] !== st.value) {
+        if (!st.changed.has(i)) st.changed.set(i, this.cells[i]);
+        this.cells[i] = st.value;
+      }
+      this.updateDone(rows, cols);
     } else if (kind) {
       const idx = kind === "row" ? c.y : c.x;
       const len = (kind === "row" ? this.rowClues[c.y] : this.colClues[c.x]).length;
@@ -1088,6 +1106,8 @@ const game = {
     const accent = css.getPropertyValue("--accent").trim();
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
     const tint = dark ? "rgba(255,220,160,.1)" : "rgba(181,69,43,.09)";
+    const badTint = "rgba(229,72,77,.3)";
+    const showBad = $("#showBad").checked && !this.solved;
     c.fillStyle = bg;
     c.fillRect(0, 0, this.vw, this.vh);
 
@@ -1179,8 +1199,9 @@ const game = {
     const { cw, ch, bx, by, right, bottom } = this.bands();
     const fontPx = (n) => Math.max(6, Math.min(cs * 0.62, n >= 10 ? step * 0.52 : cs * 0.62));
     const drawClue = (item, auto, marked, x, y, bw, bh, hl) => {
+      // a solved number looks like any other unless it is crossed out: no hint nobody asked for
       if (auto && $("#autoClues").checked) marked = true;
-      const dim = auto || marked;
+      const dim = marked;
       if (this.color) {
         c.fillStyle = this.pal[item.c];
         c.globalAlpha = dim ? 0.28 : 1;
@@ -1219,6 +1240,7 @@ const game = {
     for (let x = x0; x < x1; x++) {
       const clue = this.colClues[x], done = this.colDone[x], marks = this.colMarks[x];
       const hl = fx === x;
+      if (showBad && done.bad) { c.fillStyle = badTint; c.fillRect(gx + x * cs, topY, cs, bottom - topY); }
       if (hl) { c.fillStyle = tint; c.fillRect(gx + x * cs, topY, cs, bottom - topY); }
       for (let k = 0; k < clue.length; k++) {
         const yy = by + ch - 3 - (clue.length - k) * step;
@@ -1235,6 +1257,7 @@ const game = {
       const py = gy + y * cs;
       if (py + cs < bottom) continue;
       const hl = fy === y;
+      if (showBad && done.bad) { c.fillStyle = badTint; c.fillRect(leftX, py, right - leftX, cs); }
       if (hl) { c.fillStyle = tint; c.fillRect(leftX, py, right - leftX, cs); }
       for (let k = 0; k < clue.length; k++) {
         const xx = bx + cw - 3 - (clue.length - k) * step;
@@ -1268,6 +1291,11 @@ const game = {
       c.strokeStyle = accent;
       if (fx >= 0 && fx < w) outlineCol(fx);
       if (fy >= 0 && fy < h) outlineRow(fy);
+    }
+    if (showBad && this.color) {
+      c.strokeStyle = "#e5484d";
+      for (let x = x0; x < x1; x++) if (this.colDone[x].bad && x !== fx) outlineCol(x);
+      for (let y = y0; y < y1; y++) if (this.rowDone[y].bad && y !== fy) outlineRow(y);
     }
     // and of the line the last Help worked from
     if (hint && hint.line != null) {
@@ -1448,6 +1476,8 @@ $("#autoCross").checked = store.get("autoCross", false);
 $("#autoCross").onchange = (e) => { store.set("autoCross", e.target.checked); if (game.p) { game.updateDone(); game.draw(); } };
 $("#autoGaps").checked = store.get("autoGaps", false);
 $("#autoGaps").onchange = (e) => { store.set("autoGaps", e.target.checked); if (game.p) { game.updateDone(); game.draw(); } };
+$("#showBad").checked = store.get("showBad", false);
+$("#showBad").onchange = (e) => { store.set("showBad", e.target.checked); game.draw(); };
 $("#helpBtn").onclick = () => game.help();
 // keep keyboard focus on the board after clicking sidebar buttons
 $("#side").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) b.blur(); });

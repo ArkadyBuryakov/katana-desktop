@@ -116,6 +116,7 @@ pub struct Settings {
     pub auto_clues: bool,
     pub auto_cross: bool,
     pub auto_gaps: bool,
+    pub show_bad: bool,
     pub side_collapsed: bool,
     /// None: follow the terminal
     pub dark: Option<bool>,
@@ -134,6 +135,7 @@ impl Default for Settings {
             auto_clues: true,
             auto_cross: false,
             auto_gaps: false,
+            show_bad: false,
             side_collapsed: false,
             dark: None,
             nerd_font: None,
@@ -430,6 +432,7 @@ pub enum Act {
     AutoClues,
     AutoCross,
     AutoGaps,
+    ShowBad,
     Check,
     Reset,
     Help,
@@ -1326,7 +1329,7 @@ impl App {
             return;
         }
         g.kb = true;
-        g.apply_space(true, false);
+        g.apply_space(true);
         if !self.key_release {
             g.end_space();
         }
@@ -1343,7 +1346,7 @@ impl App {
             self.end_space();
         } else {
             g.kb = true;
-            g.apply_space(true, false);
+            g.apply_space(true);
             self.sticky = true;
             self.after_game();
         }
@@ -1360,6 +1363,7 @@ impl App {
             Act::AutoClues => self.settings.auto_clues ^= true,
             Act::AutoCross => self.settings.auto_cross ^= true,
             Act::AutoGaps => self.settings.auto_gaps ^= true,
+            Act::ShowBad => self.settings.show_bad ^= true,
             Act::Check => {
                 let msg = match g.check() {
                     0 => "No mistakes so far".to_string(),
@@ -1392,7 +1396,7 @@ impl App {
         }
         match act {
             Act::Zoom(_) | Act::Fit => self.remember_view(),
-            Act::AutoClues | Act::AutoCross | Act::AutoGaps => {
+            Act::AutoClues | Act::AutoCross | Act::AutoGaps | Act::ShowBad => {
                 self.save_settings();
                 let opts = self.opts();
                 if let Some(g) = &mut self.game {
@@ -1613,6 +1617,7 @@ impl App {
             KeyCode::Char('n') => self.game_act(Act::AutoClues),
             KeyCode::Char('e') => self.game_act(Act::AutoCross),
             KeyCode::Char('g') => self.game_act(Act::AutoGaps),
+            KeyCode::Char('i') => self.game_act(Act::ShowBad),
             KeyCode::Char('[') => self.toggle_sidebar(),
             _ => {}
         }

@@ -322,6 +322,8 @@ pub struct Look {
     pub hover: Option<(i32, i32)>,
     /// strike through solved numbers
     pub auto_clues: bool,
+    /// tint the numbers of lines that can't be finished any more
+    pub show_bad: bool,
     /// the character of a crossed cell
     pub cross: char,
 }
@@ -330,6 +332,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, g: &Game, v: &View, th: &Theme, look: 
     let Look {
         hover,
         auto_clues,
+        show_bad,
         cross,
     } = *look;
     let (vw, vh) = (area.width as i32, area.height as i32);
@@ -477,7 +480,13 @@ pub fn draw(buf: &mut Buffer, area: Rect, g: &Game, v: &View, th: &Theme, look: 
     let (board_r, board_b) = (vw.min(gx + w * cw), vh.min(gy + h * ch));
     // lines are told apart the way cells are; the focused one and the one the last Help worked from stand out
     let band_bg = |i: i32, is_row: bool| -> Rgb {
-        if i == if is_row { fy } else { fx } {
+        let focused = i == if is_row { fy } else { fx };
+        let done = if is_row { &g.row_done } else { &g.col_done };
+        if show_bad && live && done[i as usize].bad {
+            let t = if focused { 0.6 } else { 0.4 };
+            return blend(th.panel, [0xe5, 0x48, 0x4d], t);
+        }
+        if focused {
             return blend(th.panel, th.accent, 0.3);
         }
         if let Some(((hint_row, line), color)) = hint_line
@@ -502,8 +511,9 @@ pub fn draw(buf: &mut Buffer, area: Rect, g: &Game, v: &View, th: &Theme, look: 
                 hl: bool,
                 cur: bool| {
         let (x, y, bw, bh) = at;
+        // a solved number looks like any other unless it is crossed out: no hint nobody asked for
         let marked = marked || (auto && auto_clues);
-        let dim = auto || marked;
+        let dim = marked;
         let (mut fg, mut bg) = (
             if dim {
                 blend(band, th.muted, 0.75)
@@ -530,8 +540,10 @@ pub fn draw(buf: &mut Buffer, area: Rect, g: &Game, v: &View, th: &Theme, look: 
             for dy in 0..bh {
                 for dx in 0..bw {
                     let sym = match (gap_x && dx == bw - 1, gap_y && dy == bh - 1) {
-                        (true, true) => '▘',
-                        (true, false) => '▌',
+                        // with both gaps the right one is a whole column: a quadrant in the
+                        // corner is not drawn to the same pixel as the half blocks around it
+                        (true, _) if gap_y => ' ',
+                        (true, _) => '▌',
                         (false, true) => '▀',
                         _ => continue,
                     };

@@ -193,6 +193,8 @@ pub struct Done {
     /// cells that must be empty because of the solved numbers (the caller skips the ones
     /// that aren't unknown)
     pub gaps: Vec<usize>,
+    /// no arrangement of the numbers fits what the line already holds
+    pub bad: bool,
 }
 
 pub fn done_for(line: &[i16], clue: &[Run]) -> Done {
@@ -204,15 +206,18 @@ pub fn done_for(line: &[i16], clue: &[Run]) -> Done {
             done: vec![true; m],
             full: true,
             gaps: (0..n).collect(),
+            bad: false,
         };
     }
     let sol = if m == 0 { None } else { solve_line(line, clue) };
-    // no solution: the line contradicts its clue, claim nothing
+    // no solution (or filled cells in a line without numbers): the line contradicts its
+    // clue, claim nothing
     let Some(sol) = sol else {
         return Done {
             done,
             full: false,
             gaps,
+            bad: true,
         };
     };
     // A block is a solved number when, across all valid arrangements, the only clue
@@ -290,6 +295,7 @@ pub fn done_for(line: &[i16], clue: &[Run]) -> Done {
         done,
         full: false,
         gaps,
+        bad: false,
     }
 }
 
@@ -352,10 +358,9 @@ pub struct SpaceStroke {
     changed: Vec<(usize, i16)>,
     len: usize,
     horiz: Option<bool>,
-    line: usize,
-    lo: usize,
-    hi: usize,
     at: (usize, usize),
+    /// the cells the cursor went through; going back over them takes the stroke back
+    path: Vec<usize>,
 }
 
 pub struct Game {
@@ -837,14 +842,14 @@ impl Game {
             (x, y) = (nx, ny);
             self.cursor = (x, y);
             if self.space.is_some() {
-                self.apply_space(false, sx != 0);
+                self.apply_space(false);
             }
         }
         self.kb = true;
     }
 
-    /// Space pressed (first) or the cursor moved (horizontally or not) while it is held.
-    pub fn apply_space(&mut self, first: bool, horiz: bool) {
+    /// Space pressed (first) or the cursor moved while it is held.
+    pub fn apply_space(&mut self, first: bool) {
         let (cx, cy) = self.cursor;
         let kind = self.cursor_kind();
         if kind == Kind::Cell {
@@ -858,39 +863,62 @@ impl Game {
                     changed: Vec::new(),
                     len: 1,
                     horiz: None,
-                    line: 0,
-                    lo: 0,
-                    hi: 0,
                     at: (x, y),
+                    path: Vec::new(),
                 });
             }
             let Some(st) = self.space.as_mut().filter(|st| st.kind == Kind::Cell) else {
                 return;
             };
-            if !first {
-                // the counted length starts over, from the cell the cursor turned at, when the
-                // movement changes direction
-                let (p, line) = if horiz { (x, y) } else { (y, x) };
-                if st.horiz != Some(horiz) || st.line != line {
-                    st.horiz = Some(horiz);
-                    st.line = line;
-                    let (at_p, at_line) = if horiz { st.at } else { (st.at.1, st.at.0) };
-                    st.lo = if at_line == line { at_p } else { p };
-                    st.hi = st.lo;
+            let w = self.w;
+            let n = st.path.len();
+            // back onto the cell the cursor came from: the one it leaves is as it was before
+            let left = if n >= 2 && st.path[n - 2] == i {
+                st.path.pop().filter(|l| !st.path.contains(l))
+            } else {
+                if st.path.last() != Some(&i) {
+                    st.path.push(i);
                 }
-                st.lo = st.lo.min(p);
-                st.hi = st.hi.max(p);
-                st.len = st.hi - st.lo + 1;
+                None
+            };
+            // the counted length is that of the last straight part of the path
+            let n = st.path.len();
+            if n >= 2 {
+                let prev = st.path[n - 2];
+                if prev / w == y {
+                    st.horiz = Some(true);
+                } else if prev % w == x {
+                    st.horiz = Some(false);
+                }
+            }
+            st.len = 1;
+            if let Some(horiz) = st.horiz {
+                let pos = |c: usize| if horiz { (c % w, c / w) } else { (c / w, c % w) };
+                let (p, line) = pos(i);
+                let (mut lo, mut hi) = (p, p);
+                for &c in st.path.iter().rev().take_while(|&&c| pos(c).1 == line) {
+                    lo = lo.min(pos(c).0);
+                    hi = hi.max(pos(c).0);
+                }
+                st.len = hi - lo + 1;
             }
             st.at = (x, y);
-            if self.cells[i] == st.value {
-                return;
+            let mut rows = vec![y];
+            let mut cols = vec![x];
+            if let Some(l) = left
+                && let Some(k) = st.changed.iter().position(|&(c, _)| c == l)
+            {
+                self.cells[l] = st.changed.remove(k).1;
+                rows.push(l / w);
+                cols.push(l % w);
             }
-            if !st.changed.iter().any(|&(c, _)| c == i) {
-                st.changed.push((i, self.cells[i]));
+            if self.cells[i] != st.value {
+                if !st.changed.iter().any(|&(c, _)| c == i) {
+                    st.changed.push((i, self.cells[i]));
+                }
+                self.cells[i] = st.value;
             }
-            self.cells[i] = st.value;
-            self.update_done(Some((&[y], &[x])));
+            self.update_done(Some((&rows, &cols)));
         } else {
             let (idx, k) = match kind {
                 Kind::Row => (cy as usize, self.row_clues[cy as usize].len() as i32 + cx),
@@ -909,10 +937,8 @@ impl Game {
                     changed: Vec::new(),
                     len: 1,
                     horiz: None,
-                    line: 0,
-                    lo: 0,
-                    hi: 0,
                     at: (0, 0),
+                    path: Vec::new(),
                 });
             } else if let Some(mark) = self
                 .space
@@ -1293,12 +1319,19 @@ mod tests {
         assert!(d.full && d.done == [true] && d.gaps == [0, 1, 2, 3, 4]);
         // a line that contradicts its clue claims nothing
         let d = done_for(&[1, 1, 1, 1, 0], &clue(&[2]));
+        assert!(d.bad);
+        // a cross that leaves no room for the number; cells in a line without numbers
+        assert!(done_for(&[0, 0, -1, 0, 0], &clue(&[3])).bad);
+        assert!(done_for(&[0, 1, 0], &[]).bad);
+        assert!(!done_for(&[0, -1, 0], &[]).bad);
+        assert!(!done_for(&[1, 0, 0, 0, 0], &clue(&[2, 2])).bad);
         assert_eq!(
             d,
             Done {
                 done: vec![false],
                 full: false,
-                gaps: vec![]
+                gaps: vec![],
+                bad: true,
             }
         );
     }
@@ -1338,7 +1371,7 @@ mod tests {
         // up from the board goes into the column clues, but not past the last number
         g.move_cursor(0, -5);
         assert_eq!(g.cursor, (0, -1));
-        g.apply_space(true, false);
+        g.apply_space(true);
         g.end_space();
         assert!(g.col_marks[0].contains(&0));
         g.move_cursor(0, 1);
@@ -1349,14 +1382,20 @@ mod tests {
         assert_eq!(g.cursor, (0, 2));
         // hold space and move: the same mark is repeated
         g.cursor = (0, 0);
-        g.apply_space(true, false);
+        g.apply_space(true);
         g.move_cursor(1, 0);
+        assert_eq!(g.stroke_text().as_deref(), Some("2"));
+        // going back takes the stroke back, up to the cell it started at
+        g.move_cursor(1, 0);
+        assert_eq!(&g.cells[..3], [1, 1, 1]);
+        g.move_cursor(-1, 0);
+        assert_eq!(&g.cells[..3], [1, 1, 0]);
         assert_eq!(g.stroke_text().as_deref(), Some("2"));
         g.end_space();
         assert_eq!(&g.cells[..3], [1, 1, 0]);
         // fill → cross → empty
         for want in [CROSS, EMPTY, 1] {
-            g.apply_space(true, false);
+            g.apply_space(true);
             g.end_space();
             assert_eq!(g.cells[1], want);
         }

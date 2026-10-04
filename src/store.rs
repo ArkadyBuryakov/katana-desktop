@@ -527,8 +527,8 @@ impl Store {
                     };
                     [c[0], c[1], c[2], 255]
                 }
-                -1 => [214, 206, 192, 255],                  // crossed
-                _ => [pal[0][0], pal[0][1], pal[0][2], 255], // unknown: the puzzle background
+                // unknown or crossed: the puzzle background
+                _ => [pal[0][0], pal[0][1], pal[0][2], 255],
             };
             rgba.extend_from_slice(&px);
         }
