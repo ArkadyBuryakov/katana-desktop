@@ -21,6 +21,10 @@ jobs:
         pkg: [katana-desktop, katana-desktop-bin, katana-tui, katana-tui-bin]
     runs-on: ubuntu-latest
     container: archlinux:latest
+    # lists the publish under the repository's Deployments
+    environment:
+      name: aur
+      url: https://aur.archlinux.org/packages/${{ matrix.pkg }}
     permissions:
       contents: read
     env:

@@ -18,6 +18,10 @@ on:
 jobs:
   publish:
     runs-on: macos-latest
+    # lists the publish under the repository's Deployments
+    environment:
+      name: homebrew
+      url: https://github.com/ArkadyBuryakov/homebrew-tap/blob/main/Formula/katana-tui.rb
     permissions:
       contents: read
     env:
