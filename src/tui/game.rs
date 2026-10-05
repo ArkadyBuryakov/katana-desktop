@@ -1232,6 +1232,20 @@ impl Game {
         }
     }
 
+    /// done[k]: the board holds as many cells of colour k as the picture does
+    pub fn colors_done(&self) -> Vec<bool> {
+        let mut left = vec![0i32; self.pal.len()];
+        for (&s, &v) in self.sol.iter().zip(&self.cells) {
+            if s > 0 {
+                left[s as usize] += 1;
+            }
+            if v > 0 {
+                left[v as usize] -= 1;
+            }
+        }
+        left.iter().map(|&n| n == 0).collect()
+    }
+
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
     }
@@ -1334,6 +1348,19 @@ mod tests {
                 bad: true,
             }
         );
+    }
+
+    #[test]
+    fn finished_colors() {
+        let mut g = game(&["12.", ".1."], Opts::default());
+        assert_eq!(g.colors_done(), [true, false, false]);
+        g.select_tool(Some(2));
+        g.start_stroke(2, 1, false); // the right number of cells, wherever they are
+        g.end_stroke();
+        assert_eq!(g.colors_done(), [true, false, true]);
+        g.start_stroke(2, 0, false);
+        g.end_stroke();
+        assert_eq!(g.colors_done(), [true, false, false]);
     }
 
     #[test]

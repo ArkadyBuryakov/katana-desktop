@@ -505,6 +505,7 @@ const game = {
     this.maxRow = Math.max(1, ...this.rowClues.map((c) => c.length));
     this.maxCol = Math.max(1, ...this.colClues.map((c) => c.length));
     this.totalFilled = grid.reduce((a, v) => a + (v > 0 ? 1 : 0), 0);
+    this.colorTotals = this.cellCounts(grid);
     this.undo = []; this.redo = [];
     this.tool = 1;
     this.crossTool = false;
@@ -687,6 +688,7 @@ const game = {
     return { done, full: false, gaps };
   },
   updateDone(onlyRows, onlyCols) {
+    this.updateColorsDone();
     this.autoCrossOn = $("#autoCross").checked && !this.solved;
     const gapsOn = $("#autoGaps").checked && !this.solved;
     const all = onlyRows == null || !this.rowFull;
@@ -1069,7 +1071,8 @@ const game = {
         b.style.background = c;
         const key = k < 10 ? String((k + 1) % 10) : k < 20 ? "⇧" + ((k - 9) % 10) : "";
         b.title = `Colour ${k + 1}${key ? ` (${key})` : ""}`;
-        b.innerHTML = `<span class="k" style="color:${luminance(c) > 0.55 ? "#000" : "#fff"}">${key}</span>`;
+        b.style.color = luminance(c) > 0.55 ? "#000" : "#fff";
+        b.innerHTML = `<span class="k">${key}</span>`;
         b.onclick = () => this.selectTool(k + 1);
         box.appendChild(b);
       });
@@ -1080,6 +1083,19 @@ const game = {
       box.appendChild(x);
     }
     this.selectTool(1);
+  },
+  cellCounts(cells) {
+    const n = new Array(this.pal.length).fill(0);
+    for (const v of cells) if (v > 0) n[v]++;
+    return n;
+  },
+  // a colour puzzle checks off the colours the board holds as many cells of as the picture does
+  updateColorsDone() {
+    if (!this.color) return;
+    const n = this.cellCounts(this.cells);
+    for (const box of [$("#palette"), $("#railPalette")]) {
+      for (let k = 1; k < this.pal.length; k++) box.children[k - 1].classList.toggle("done", n[k] === this.colorTotals[k]);
+    }
   },
   selectTool(t) {
     if (t === "x") this.crossTool = !this.crossTool;

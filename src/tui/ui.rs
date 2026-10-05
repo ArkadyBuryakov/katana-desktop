@@ -831,10 +831,12 @@ fn play(ui: &mut Ui, app: &mut App) {
 }
 
 /// Colour buttons, three columns each, wrapped to the sidebar's width; then the cross tool.
+/// In a colour puzzle the finished colours are checked off.
 fn palette(ui: &mut Ui, app: &App, x0: u16, mut y: u16, w: u16) -> u16 {
     let th = ui.th;
     let Some(g) = &app.game else { return y };
     let mut x = x0;
+    let done = g.colors_done();
     for k in 1..g.pal.len() {
         if x + 3 > x0 + w {
             (x, y) = (x0, y + 1);
@@ -846,10 +848,12 @@ fn palette(ui: &mut Ui, app: &App, x0: u16, mut y: u16, w: u16) -> u16 {
             _ => String::new(),
         };
         let selected = !g.cross_tool && g.tool as usize == k;
-        let label = if selected {
-            format!("[{key:^1}]")
-        } else {
-            format!(" {key:<2}")
+        // a finished colour gets a checkmark
+        let label = match (selected, g.color && done[k]) {
+            (true, true) => "[✓]".to_string(),
+            (true, false) => format!("[{key:^1}]"),
+            (false, true) => format!("{key:>2}✓"),
+            (false, false) => format!(" {key:<2}"),
         };
         let ink = if luminance(color) > 0.55 {
             BLACK
