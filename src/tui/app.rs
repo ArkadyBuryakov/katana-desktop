@@ -560,7 +560,7 @@ fn load_image(store: &Store, (id, thumb): ImgKey) -> Result<Img, String> {
     let png = if thumb {
         store.progress_thumb(id)
     } else {
-        store.puzzle_png(id)
+        store.solution_png(id)
     }?;
     let (w, h, px) = protocol::decode_png(&png)?;
     // pictures are shown on white, like the board of a puzzle that doesn't bring its own background

@@ -66,7 +66,7 @@ fn serve(store: &Store, req: &Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> 
         _ => {
             if let Some(id) = id_of("/image/") {
                 // the solution picture: the UI only asks for it for solved puzzles
-                png(store.puzzle_png(id))
+                png(store.solution_png(id))
             } else if let Some(id) = id_of("/thumb/") {
                 png(store.progress_thumb(id))
             } else {

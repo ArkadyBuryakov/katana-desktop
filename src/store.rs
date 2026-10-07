@@ -442,6 +442,25 @@ impl Store {
         Ok(b)
     }
 
+    /// The finished picture, as the board shows it. Coloured-background puzzles mark their
+    /// background with transparent pixels, which would otherwise wash out over white.
+    pub fn solution_png(&self, id: u32) -> Result<Vec<u8>> {
+        let cbg = self
+            .catalog
+            .read()
+            .unwrap()
+            .by_id
+            .get(&id)
+            .is_some_and(|m| m.cbg);
+        let png = self.puzzle_png(id)?;
+        if !cbg {
+            return Ok(png);
+        }
+        let (w, h, px) = p::decode_png(&png)?;
+        let rgba: Vec<u8> = px.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+        p::encode_png(w, h, &rgba)
+    }
+
     pub fn board(&self, id: u32) -> Result<p::Board> {
         let meta = self
             .catalog
