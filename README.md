@@ -47,25 +47,28 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
 
 ```sh
 make              # build target/release/katana-desktop
-make install      # Linux: ~/.local/bin + app-menu entry; macOS: ~/Applications/Katana Desktop.app
+make install      # install both the desktop app and katana-tui
 make uninstall    # remove them again (your data is kept)
 make run | test | clean
+
+make install-desktop      # Linux: ~/.local/bin + app-menu entry; macOS: ~/Applications/Katana Desktop.app
+make uninstall-desktop
 ```
 
-The terminal frontend is built and installed on its own, and needs neither a webview nor GTK:
+The terminal frontend can be built and installed on its own, and needs neither a webview nor GTK:
 
 ```sh
 make build-tui      # build target/release/katana-tui
-make install-tui    # into ~/.local/bin (PREFIX and DESTDIR as above)
+make install-tui    # into ~/.local/bin (PREFIX and DESTDIR as below)
 make uninstall-tui
 make run-tui
 ```
 
 Variables: on Linux `PREFIX` (default `~/.local`) and `DESTDIR` for packaging, e.g.
-`make && sudo make install PREFIX=/usr/local`; on macOS `APPDIR` (default `~/Applications`).
+`make build build-tui && sudo make install PREFIX=/usr/local`; on macOS `APPDIR` (default `~/Applications`).
 
 - **Linux:** needs `webkit2gtk-4.1` and `gtk3` (`pacman -S webkit2gtk-4.1`, `apt install libwebkit2gtk-4.1-dev`).
-- **macOS:** needs the Xcode command line tools. `make install` runs `scripts/bundle-macos.sh` to build the `.app`.
+- **macOS:** needs the Xcode command line tools. `make install-desktop` runs `scripts/bundle-macos.sh` to build the `.app`.
   You can also run that script directly with `aarch64-apple-darwin` or `x86_64-apple-darwin` to build for a specific chip.
 - **Windows 10/11:** needs Rust from [rustup.rs](https://rustup.rs) with the MSVC build tools; WebView2 ships with Windows.
   `make` isn't usual on Windows, so there's a PowerShell equivalent:

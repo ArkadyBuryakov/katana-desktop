@@ -1,14 +1,16 @@
 # Katana Desktop
 #
 #   make                 build the release binary
-#   make install         install for the current user (Linux: ~/.local, macOS: ~/Applications)
+#   make install         install both frontends for the current user
 #   make uninstall       remove what `make install` put in place (your data is kept)
+#   make install-desktop | uninstall-desktop
+#                        only the desktop app (Linux: ~/.local, macOS: ~/Applications)
 #   make run | test | clean
 #
-# katana-tui, the terminal frontend, is built and installed on its own (it needs no webview):
+# katana-tui, the terminal frontend, can be built and installed on its own (it needs no webview):
 #   make build-tui | run-tui
-#   make install-tui     install it into $(PREFIX)/bin (~/.local/bin)
-#   make uninstall-tui
+#   make install-tui | uninstall-tui
+#                        only katana-tui, in $(PREFIX)/bin (~/.local/bin)
 #
 #   make release ...     set the version, commit and tag; pushing the tag publishes the release
 #                        major|minor|patch bumps that part (zeroing the smaller ones); on an -rcN
@@ -20,7 +22,7 @@
 #                        (needs mingw-w64-gcc, nsis and `rustup target add x86_64-pc-windows-gnu`)
 #   make windows-tui     cross-build dist/katana-tui-<version>-windows-x86_64.zip (needs zip, not nsis)
 #
-# Linux system-wide:   make && sudo make install PREFIX=/usr/local
+# Linux system-wide:   make build build-tui && sudo make install PREFIX=/usr/local
 # macOS elsewhere:     make install APPDIR=/Applications
 
 NAME    := katana-desktop
@@ -37,10 +39,14 @@ APPDIR  ?= $(HOME)/Applications
 
 SOURCES := Cargo.toml Cargo.lock build.rs $(wildcard src/*.rs) $(wildcard src/tui/*.rs) $(wildcard web/*)
 
-.PHONY: all build run test clean install uninstall bundle windows release
+.PHONY: all build run test clean install uninstall install-desktop uninstall-desktop bundle windows release
 .PHONY: build-tui run-tui install-tui uninstall-tui windows-tui
 
 all: build
+
+install: install-desktop install-tui
+
+uninstall: uninstall-desktop uninstall-tui
 
 build: $(BIN)
 
@@ -167,20 +173,20 @@ ifeq ($(UNAME),Darwin)
 bundle: $(BIN)
 	./scripts/bundle-macos.sh
 
-install: bundle
+install-desktop: bundle
 	mkdir -p "$(APPDIR)"
 	rm -rf "$(APPDIR)/$(APPNAME).app"
 	cp -R "target/$(APPNAME).app" "$(APPDIR)/"
 	@echo "Installed $(APPDIR)/$(APPNAME).app"
 
-uninstall:
+uninstall-desktop:
 	rm -rf "$(APPDIR)/$(APPNAME).app"
 	@echo "Removed $(APPDIR)/$(APPNAME).app"
 	@echo "Your data is kept in ~/Library/Application Support/$(NAME)"
 
 else
 
-install: $(BIN)
+install-desktop: $(BIN)
 	install -Dm755 $(BIN) "$(BINDIR)/$(NAME)"
 	install -Dm644 web/icon.png "$(DATADIR)/icons/hicolor/256x256/apps/$(NAME).png"
 	install -d "$(DATADIR)/applications"
@@ -198,7 +204,7 @@ install: $(BIN)
 		> "$(DATADIR)/applications/$(NAME).desktop"
 	@echo "Installed $(PREFIX)/bin/$(NAME) and a \"$(APPNAME)\" menu entry"
 
-uninstall:
+uninstall-desktop:
 	rm -f "$(BINDIR)/$(NAME)"
 	rm -f "$(DATADIR)/icons/hicolor/256x256/apps/$(NAME).png"
 	rm -f "$(DATADIR)/applications/$(NAME).desktop"

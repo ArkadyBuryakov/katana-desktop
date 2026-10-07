@@ -33,6 +33,6 @@ check() {
 
 package() {
   cd "$pkgname-$pkgver"
-  make install PREFIX=/usr DESTDIR="$pkgdir"
+  make install-desktop PREFIX=/usr DESTDIR="$pkgdir"
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }

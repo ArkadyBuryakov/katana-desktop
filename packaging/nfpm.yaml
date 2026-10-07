@@ -1,4 +1,4 @@
-# .deb and .rpm from the tree `make install PREFIX=/usr DESTDIR=stage` leaves in stage/.
+# .deb and .rpm from the tree `make install-desktop PREFIX=/usr DESTDIR=stage` leaves in stage/.
 # VERSION and ARCH (amd64 | arm64) come from the environment, see .github/workflows/release.yml.
 name: katana-desktop
 version: ${VERSION}

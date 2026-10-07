@@ -38,7 +38,7 @@ jobs:
       - run: cargo test --locked --release
       - run: cargo build --locked --release
       - run: |
-          make install PREFIX=/usr DESTDIR=stage
+          make install-desktop PREFIX=/usr DESTDIR=stage
           install -Dm644 LICENSE -t stage/usr/share/licenses/katana-desktop
           # katana-tui is packaged on its own
           make install-tui PREFIX=/usr DESTDIR=stage-tui
