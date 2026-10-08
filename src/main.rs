@@ -272,7 +272,31 @@ fn window_icon() -> Option<tao::window::Icon> {
     tao::window::Icon::from_rgba(px.concat(), w, h).ok()
 }
 
+/// WebKitGTK's DMA-BUF renderer kills the Wayland connection on NVIDIA's driver
+/// ("Error 71 (Protocol error) dispatching to Wayland display"), and its shared-memory
+/// fallback scrolls badly; paint on the CPU there instead. Variables the user has
+/// already set are left alone.
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn webkit_workarounds() {
+    let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let nvidia = std::path::Path::new("/sys/module/nvidia").exists();
+    if !(wayland && nvidia) {
+        return;
+    }
+    for var in [
+        "WEBKIT_DISABLE_DMABUF_RENDERER",
+        "WEBKIT_DISABLE_COMPOSITING_MODE",
+    ] {
+        if std::env::var_os(var).is_none() {
+            // SAFETY: called first thing in main, before any other thread exists
+            unsafe { std::env::set_var(var, "1") };
+        }
+    }
+}
+
 fn main() -> wry::Result<()> {
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    webkit_workarounds();
     let store = Store::open();
     {
         let s = store.clone();
