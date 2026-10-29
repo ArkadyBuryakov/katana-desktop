@@ -26,6 +26,8 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
 - **Arch Linux and derivatives:** from the AUR, `yay -S katana-desktop-bin` (prebuilt) or `yay -S katana-desktop` (built from source).
 - **Debian, Ubuntu, Mint, Pop!_OS (22.04+):** `katana-desktop_<version>_amd64.deb`, install with `sudo apt install ./katana-desktop_*.deb`.
 - **Fedora:** `katana-desktop-<version>-1.x86_64.rpm`, install with `sudo dnf install ./katana-desktop-*.rpm`.
+- **Any Linux with snap:** `sudo snap install katana-desktop` from the [Snap Store](https://snapcraft.io/katana-desktop).
+  It keeps its data apart from the other packages, in `~/snap/katana-desktop`.
 - **Other Linux:** `katana-desktop-<version>-linux-<arch>.tar.gz` holds a `usr/` tree; it needs `webkit2gtk-4.1`.
 - **Windows:** `KatanaDesktop-<version>-setup.exe` or `-portable.exe` (see below).
 - **macOS 11+:** `KatanaDesktop-<version>-macos-universal.dmg`. The app isn't notarized, so on first launch
@@ -195,12 +197,15 @@ the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages of
 `katana-tui`, publishes a GitHub release with them and their `SHA256SUMS`, and pushes `packaging/aur/*`
 (four packages) to the AUR with the new version and checksums.
 It also builds `packaging/homebrew/katana-tui.rb` and pushes it to the
-[Homebrew tap](https://github.com/ArkadyBuryakov/homebrew-tap).
-Tags like `v1.2.0-rc1` make a prerelease and skip the AUR and the tap. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
+[Homebrew tap](https://github.com/ArkadyBuryakov/homebrew-tap), and builds `packaging/snap/snapcraft.yaml`
+for amd64 and arm64 and uploads it to the [Snap Store](https://snapcraft.io/katana-desktop).
+Tags like `v1.2.0-rc1` make a prerelease, skip the AUR and the tap, and put the snap on the `candidate` channel. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
 repository secret: the private half of an SSH key added to the AUR account that maintains the packages.
 The tap step needs `TAP_SSH_PRIVATE_KEY`: the private half of a deploy key with write access to the tap.
-If only one of these steps fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`
-or `gh workflow run publish_homebrew.yml -f version=1.2.3`.
+The snap step needs `SNAPCRAFT_STORE_CREDENTIALS`, from `snapcraft export-login --snaps=katana-desktop
+--acls package_access,package_push,package_update,package_release snap-creds.txt` (it expires after a year).
+If only one of these steps fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`,
+`gh workflow run publish_homebrew.yml -f version=1.2.3` or `gh workflow run publish_snap.yml -f version=1.2.3`.
 
 The landing page at [katana.buryakov.pro](https://katana.buryakov.pro/) is the static `site/` directory
 (no build step; `python3 -m http.server -d site` to look at it). `wrangler.jsonc` deploys it to Cloudflare:

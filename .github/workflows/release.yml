@@ -1,6 +1,6 @@
 # Push a tag vX.Y.Z (see `make release`) to build every package, publish a GitHub release
-# with them attached, and update the AUR packages and the Homebrew tap. Tags with a "-"
-# (v1.2.0-rc1) make a prerelease and skip the AUR and the tap.
+# with them attached, and update the AUR packages, the Homebrew tap and the snap. Tags with a "-"
+# (v1.2.0-rc1) make a prerelease, skip the AUR and the tap, and put the snap on its candidate channel.
 name: Release
 
 on:
@@ -127,6 +127,13 @@ jobs:
     needs: release
     if: ${{ !contains(github.ref_name, '-') }}
     uses: ./.github/workflows/publish_homebrew.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit
+
+  snap:
+    needs: release
+    uses: ./.github/workflows/publish_snap.yml
     with:
       version: ${{ github.ref_name }}
     secrets: inherit

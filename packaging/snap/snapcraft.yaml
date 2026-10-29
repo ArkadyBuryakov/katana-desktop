@@ -1,0 +1,52 @@
+# The katana-desktop snap, built from the release tag. version and source-tag are filled in by
+# .github/workflows/publish_snap.yml on each release.
+name: katana-desktop
+title: Katana Desktop
+version: '0.1.0'
+summary: Unofficial desktop client for Nonograms Katana user puzzles
+description: |
+  Solve the user-created puzzles of Nonograms Katana on the desktop, synced with your Katana account:
+  progress, solved puzzles and the catalog follow you between this app and the phone.
+
+  This is an independent fan project. It is not made, endorsed or supported by the developers of
+  Nonograms Katana. "Nonograms Katana" is their trademark, and the puzzles belong to their authors.
+license: MIT
+website: https://github.com/ArkadyBuryakov/katana-desktop
+source-code: https://github.com/ArkadyBuryakov/katana-desktop
+issues: https://github.com/ArkadyBuryakov/katana-desktop/issues
+contact: arkady@buryakov.pro
+icon: web/icon.png
+base: core24
+grade: stable
+confinement: strict
+platforms:
+  amd64:
+  arm64:
+
+# WebKitGTK comes with the gnome extension's runtime, but starts its helper processes from the
+# path it was built for, so that path has to lead into the runtime
+layout:
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1:
+    bind: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1
+
+apps:
+  katana-desktop:
+    command: usr/bin/katana-desktop
+    desktop: usr/share/applications/katana-desktop.desktop
+    # desktop, wayland, x11, opengl... come with the extension
+    extensions: [gnome]
+    plugs: [network]
+
+parts:
+  katana-desktop:
+    plugin: rust
+    source: https://github.com/ArkadyBuryakov/katana-desktop.git
+    source-tag: v0.1.0
+    rust-channel: stable
+    rust-cargo-parameters: [--bin, katana-desktop]
+    build-packages: [make]
+    override-build: |
+      craftctl default
+      # the menu entry and icon, the same as every other Linux package; the binary is already built
+      make install-desktop BIN="$CRAFT_PART_INSTALL/bin/katana-desktop" PREFIX=/usr DESTDIR="$CRAFT_PART_INSTALL"
+      rm -r "$CRAFT_PART_INSTALL/bin"
