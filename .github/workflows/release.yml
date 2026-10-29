@@ -1,4 +1,4 @@
-# Push a tag vX.Y.Z (see `make release`) to build every package, publish a GitHub release
+# Push a tag vX.Y.Z (see `make release`) to build every package (.flatpak included), publish a GitHub release
 # with them attached, and update the AUR packages, the Homebrew tap and the snap. Tags with a "-"
 # (v1.2.0-rc1) make a prerelease, skip the AUR and the tap, and put the snap on its candidate channel.
 name: Release
@@ -101,8 +101,40 @@ jobs:
       - uses: actions/upload-artifact@v5
         with: { name: macos, path: 'dist/*' }
 
+  flatpak:
+    # a .flatpak bundle of the binary the linux job built; installing it pulls the GNOME runtime from Flathub
+    needs: linux
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, arch: x86_64 }
+          - { runner: ubuntu-24.04-arm, arch: aarch64 }
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with: { name: 'linux-${{ matrix.arch }}', path: linux }
+      - id: unpack
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          mkdir stage
+          tar -xzf "linux/katana-desktop-$v-linux-${{ matrix.arch }}.tar.gz" -C stage
+          echo "bundle=katana-desktop-$v-linux-${{ matrix.arch }}.flatpak" >> "$GITHUB_OUTPUT"
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: packaging/flatpak/pro.buryakov.KatanaDesktop.yml
+          bundle: ${{ steps.unpack.outputs.bundle }}
+          arch: ${{ matrix.arch }}
+          branch: stable
+          upload-artifact: false
+      - uses: actions/upload-artifact@v5
+        with: { name: 'flatpak-${{ matrix.arch }}', path: '${{ steps.unpack.outputs.bundle }}' }
+
   release:
-    needs: [linux, windows, macos]
+    needs: [linux, flatpak, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5

@@ -28,6 +28,9 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
 - **Fedora:** `katana-desktop-<version>-1.x86_64.rpm`, install with `sudo dnf install ./katana-desktop-*.rpm`.
 - **Any Linux with snap:** `sudo snap install katana-desktop` from the [Snap Store](https://snapcraft.io/katana-desktop).
   It keeps its data apart from the other packages, in `~/snap/katana-desktop`.
+- **Any Linux with Flatpak:** `katana-desktop-<version>-linux-<arch>.flatpak`, install with
+  `flatpak install --user ./katana-desktop-*.flatpak` (it fetches the GNOME runtime from Flathub). It isn't on Flathub
+  itself, so update it by installing the next release's file. Its data is in `~/.var/app/pro.buryakov.KatanaDesktop`.
 - **Other Linux:** `katana-desktop-<version>-linux-<arch>.tar.gz` holds a `usr/` tree; it needs `webkit2gtk-4.1`.
 - **Windows:** `KatanaDesktop-<version>-setup.exe` or `-portable.exe` (see below).
 - **macOS 11+:** `KatanaDesktop-<version>-macos-universal.dmg`. The app isn't notarized, so on first launch
@@ -193,7 +196,7 @@ See `src/protocol.rs`. `cargo test` covers the format. With `KATANA_SAMPLES=<dir
 ## Development
 
 To release: `make release patch` (or `minor`, `major`, `rc` for a release candidate, or an exact `x.y.z` / `x.y.z-rcN`), then push the tag it prints. `.github/workflows/release.yml` then builds
-the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm), Windows and macOS packages of both `katana-desktop` and
+the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm, and a .flatpak of the desktop app), Windows and macOS packages of both `katana-desktop` and
 `katana-tui`, publishes a GitHub release with them and their `SHA256SUMS`, and pushes `packaging/aur/*`
 (four packages) to the AUR with the new version and checksums.
 It also builds `packaging/homebrew/katana-tui.rb` and pushes it to the

@@ -1,0 +1,28 @@
+# The .flatpak bundle attached to each GitHub release (not a Flathub manifest: it packages the
+# prebuilt binary). .github/workflows/release.yml unpacks the release's linux tar.gz into stage/
+# at the repository root and builds this with flatpak-builder.
+#
+# GNOME 51 is the last runtime with WebKitGTK 4.1 (GTK 3), which wry needs; GNOME 52 only has 6.0.
+id: pro.buryakov.KatanaDesktop
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: katana-desktop
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+modules:
+  - name: katana-desktop
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../../stage
+    build-commands:
+      - install -Dm755 usr/bin/katana-desktop -t /app/bin
+      # flatpak only exports a menu entry and icon named after the app id
+      - install -Dm644 usr/share/icons/hicolor/256x256/apps/katana-desktop.png /app/share/icons/hicolor/256x256/apps/$FLATPAK_ID.png
+      - install -Dm644 usr/share/applications/katana-desktop.desktop /app/share/applications/$FLATPAK_ID.desktop
+      - desktop-file-edit --set-key=Exec --set-value=katana-desktop --set-icon=$FLATPAK_ID /app/share/applications/$FLATPAK_ID.desktop
