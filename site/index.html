@@ -58,7 +58,7 @@
         <a class="button primary" href="#install">Install<span id="ctaOs"></span></a>
         <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop">Source on GitHub</a>
       </p>
-      <p class="meta">v<span class="ver">1.1.0</span> · MIT · Windows, macOS, Linux</p>
+      <p class="meta">v<span class="ver">1.1.5</span> · MIT · Windows, macOS, Linux</p>
     </div>
     <a class="shot" data-only="desktop" href="img/desktop-board.webp">
       <img src="img/desktop-board.webp" width="1600" height="1075" alt="Katana Desktop with a colour puzzle half solved">
@@ -153,6 +153,7 @@
       <button type="button" role="tab" data-os="debian">Debian / Ubuntu</button>
       <button type="button" role="tab" data-os="fedora">Fedora</button>
       <button type="button" role="tab" data-os="linux">Other Linux</button>
+      <button type="button" role="tab" data-os="sandboxed">Snap / Flatpak</button>
       <span class="detected" id="detected"></span>
     </div>
 
@@ -160,14 +161,14 @@
       <h3>Windows 10 / 11</h3>
       <div data-only="desktop">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-setup.exe">Download the installer</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-portable.exe">Portable .exe</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/KatanaDesktop-1.1.5-setup.exe">Download the installer</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/KatanaDesktop-1.1.5-portable.exe">Portable .exe</a>
         </p>
         <p>The installer is for your user only and needs no admin rights. The portable file runs without
           installing anything. Neither is code-signed, so SmartScreen may ask for confirmation on first run.</p>
       </div>
       <div data-only="tui">
-        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-windows-x86_64.zip">Download the .zip</a></p>
+        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-windows-x86_64.zip">Download the .zip</a></p>
         <p>It holds <code>katana-tui.exe</code>. Run it from Windows Terminal.</p>
       </div>
     </div>
@@ -175,7 +176,7 @@
     <div class="panel" data-os="macos">
       <h3>macOS 11+</h3>
       <div data-only="desktop">
-        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/KatanaDesktop-1.1.0-macos-universal.dmg">Download the .dmg</a></p>
+        <p><a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/KatanaDesktop-1.1.5-macos-universal.dmg">Download the .dmg</a></p>
         <p>Universal, for Apple silicon and Intel. The app isn't notarized, so macOS refuses to open it the
           first time: allow it in System Settings → Privacy &amp; Security → “Open Anyway”, or run</p>
         <pre class="cmd"><code>xattr -dr com.apple.quarantine "/Applications/Katana Desktop.app"</code></pre>
@@ -183,7 +184,7 @@
       <div data-only="tui">
         <p>With Homebrew (built from source):</p>
         <pre class="cmd"><code>brew install arkadyburyakov/tap/katana-tui</code></pre>
-        <p>Or <a href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-macos-universal.tar.gz">download the universal binary</a>.
+        <p>Or <a href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-macos-universal.tar.gz">download the universal binary</a>.
           It isn't notarized, so after unpacking:</p>
         <pre class="cmd"><code>xattr -d com.apple.quarantine katana-tui</code></pre>
       </div>
@@ -209,16 +210,16 @@
       <h3>Debian, Ubuntu, Mint, Pop!_OS (22.04+)</h3>
       <div data-only="desktop">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop_1.1.0_amd64.deb">Download the .deb</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop_1.1.0_arm64.deb">arm64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop_1.1.5_amd64.deb">Download the .deb</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop_1.1.5_arm64.deb">arm64</a>
         </p>
         <p>Then, in the folder you saved it to:</p>
         <pre class="cmd"><code>sudo apt install ./katana-desktop_*.deb</code></pre>
       </div>
       <div data-only="tui">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui_1.1.0_amd64.deb">Download the .deb</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui_1.1.0_arm64.deb">arm64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui_1.1.5_amd64.deb">Download the .deb</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui_1.1.5_arm64.deb">arm64</a>
         </p>
         <p>Then, in the folder you saved it to:</p>
         <pre class="cmd"><code>sudo apt install ./katana-tui_*.deb</code></pre>
@@ -229,16 +230,16 @@
       <h3>Fedora</h3>
       <div data-only="desktop">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-1.x86_64.rpm">Download the .rpm</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-1.aarch64.rpm">aarch64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-1.x86_64.rpm">Download the .rpm</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-1.aarch64.rpm">aarch64</a>
         </p>
         <p>Then, in the folder you saved it to:</p>
         <pre class="cmd"><code>sudo dnf install ./katana-desktop-*.rpm</code></pre>
       </div>
       <div data-only="tui">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-1.x86_64.rpm">Download the .rpm</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-1.aarch64.rpm">aarch64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-1.x86_64.rpm">Download the .rpm</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-1.aarch64.rpm">aarch64</a>
         </p>
         <p>Then, in the folder you saved it to:</p>
         <pre class="cmd"><code>sudo dnf install ./katana-tui-*.rpm</code></pre>
@@ -249,20 +250,44 @@
       <h3>Other Linux</h3>
       <div data-only="desktop">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-linux-x86_64.tar.gz">Download the .tar.gz</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-desktop-1.1.0-linux-aarch64.tar.gz">aarch64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-linux-x86_64.tar.gz">Download the .tar.gz</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-linux-aarch64.tar.gz">aarch64</a>
         </p>
         <p>The archive holds a <code>usr/</code> tree with the binary, the app-menu entry and the icon.
           It needs <code>webkit2gtk-4.1</code> and glibc 2.35 or newer.</p>
       </div>
       <div data-only="tui">
         <p>
-          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-linux-x86_64.tar.gz">Download the .tar.gz</a>
-          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.0/katana-tui-1.1.0-linux-aarch64.tar.gz">aarch64</a>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-linux-x86_64.tar.gz">Download the .tar.gz</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-tui-1.1.5-linux-aarch64.tar.gz">aarch64</a>
         </p>
         <p>The archive holds a <code>usr/</code> tree with the <code>katana-tui</code> binary; it needs
           glibc 2.35 or newer. With Homebrew on Linux, it builds from source:</p>
         <pre class="cmd"><code>brew install arkadyburyakov/tap/katana-tui</code></pre>
+      </div>
+    </div>
+
+    <div class="panel" data-os="sandboxed">
+      <h3>Snap and Flatpak, on any Linux</h3>
+      <div data-only="desktop">
+        <p>From the <a href="https://snapcraft.io/katana-desktop">Snap Store</a>:</p>
+        <pre class="cmd"><code>sudo snap install katana-desktop</code></pre>
+        <p>Or as a Flatpak:</p>
+        <p>
+          <a class="button primary" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-linux-x86_64.flatpak">Download the .flatpak</a>
+          <a class="button" href="https://github.com/ArkadyBuryakov/katana-desktop/releases/download/v1.1.5/katana-desktop-1.1.5-linux-aarch64.flatpak">aarch64</a>
+        </p>
+        <p>Then, in the folder you saved it to (it fetches the GNOME runtime from Flathub):</p>
+        <pre class="cmd"><code>flatpak install --user ./katana-desktop-*.flatpak</code></pre>
+        <p>The app isn't on Flathub itself, so the Flatpak doesn't update on its own: install the next
+          release's file over it. The snap updates by itself. Each keeps its data to itself, so neither
+          shares the login and boards with another install.</p>
+      </div>
+      <div data-only="tui">
+        <p>From the <a href="https://snapcraft.io/katana-tui">Snap Store</a>:</p>
+        <pre class="cmd"><code>sudo snap install katana-tui</code></pre>
+        <p>The snap keeps its data to itself, so it doesn't share the login and boards with another install.
+          There's no Flatpak of <code>katana-tui</code>: Flatpak is made for apps with a window.</p>
       </div>
     </div>
 
@@ -289,7 +314,7 @@
 
 <!-- the key hints of the TUI page, like the bottom line of katana-tui -->
 <div id="keys" data-only="tui" aria-hidden="true">
-  <b>d</b> desktop page · <b>t</b> tui page · <b>1</b>–<b>6</b> system · <b>i</b> install
+  <b>d</b> desktop page · <b>t</b> tui page · <b>1</b>–<b>7</b> system · <b>i</b> install
 </div>
 
 <script src="app.js"></script>
