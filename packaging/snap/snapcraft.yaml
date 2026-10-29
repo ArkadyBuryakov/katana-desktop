@@ -39,14 +39,14 @@ apps:
 
 parts:
   katana-desktop:
-    plugin: rust
+    # rustup by hand: the rust plugin's check for its rustup snap fails here ("'rustup' not found")
+    plugin: nil
     source: https://github.com/ArkadyBuryakov/katana-desktop.git
     source-tag: v0.1.0
-    rust-channel: stable
-    rust-cargo-parameters: [--bin, katana-desktop]
-    build-packages: [make]
+    build-packages: [curl, make]
     override-build: |
-      craftctl default
-      # the menu entry and icon, the same as every other Linux package; the binary is already built
-      make install-desktop BIN="$CRAFT_PART_INSTALL/bin/katana-desktop" PREFIX=/usr DESTDIR="$CRAFT_PART_INSTALL"
-      rm -r "$CRAFT_PART_INSTALL/bin"
+      curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+      export PATH="$HOME/.cargo/bin:$PATH"
+      cargo build --locked --release --bin katana-desktop
+      # the menu entry and icon, the same as every other Linux package
+      make install-desktop PREFIX=/usr DESTDIR="$CRAFT_PART_INSTALL"
