@@ -1,4 +1,4 @@
-# Builds packaging/snap/snapcraft.yaml for a release tag and uploads it to the Snap Store: releases
+# Builds packaging/snap/* for a release tag and uploads them to the Snap Store: releases
 # to stable, release candidates (1.2.0-rc1) to candidate. release.yml calls it once the GitHub
 # release exists; run it by hand to (re)publish one: gh workflow run publish_snap.yml -f version=1.2.3
 # (add -f channel=edge to try a build without touching stable)
@@ -24,12 +24,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        snap: [katana-desktop, katana-tui]
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     # lists the publish under the repository's Deployments
     environment:
       name: snapcraft
-      url: https://snapcraft.io/katana-desktop
+      url: https://snapcraft.io/${{ matrix.snap }}
     permissions:
       contents: read
     env:
@@ -42,7 +43,7 @@ jobs:
         run: |
           version="${RELEASE_VERSION#v}"
           sed -e "s/^version: .*/version: '$version'/" -e "s/^    source-tag: .*/    source-tag: v$version/" \
-            packaging/snap/snapcraft.yaml > snapcraft.yaml
+            packaging/snap/${{ matrix.snap }}/snapcraft.yaml > snapcraft.yaml
           grep -q "source-tag: v$version$" snapcraft.yaml
           case "$version" in *-*) channel=candidate ;; *) channel=stable ;; esac
           echo "channel=${CHANNEL:-$channel}" >> "$GITHUB_OUTPUT"

@@ -42,6 +42,8 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
 - **Arch Linux and derivatives:** `yay -S katana-tui-bin` (prebuilt) or `yay -S katana-tui` (built from source).
 - **Debian, Ubuntu, Mint, Pop!_OS (22.04+):** `katana-tui_<version>_amd64.deb`.
 - **Fedora:** `katana-tui-<version>-1.x86_64.rpm`.
+- **Any Linux with snap:** `sudo snap install katana-tui` from the [Snap Store](https://snapcraft.io/katana-tui).
+  A snap keeps its data to itself, so it doesn't share the login and boards with the desktop app.
 - **Other Linux:** `katana-tui-<version>-linux-<arch>.tar.gz` holds a `usr/` tree.
 - **Windows:** `katana-tui-<version>-windows-x86_64.zip` holds `katana-tui.exe`; run it from Windows Terminal.
 - **macOS or Linux with Homebrew:** `brew install arkadyburyakov/tap/katana-tui` (built from source).
@@ -200,12 +202,12 @@ the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm, and a .flatpak of the desktop 
 `katana-tui`, publishes a GitHub release with them and their `SHA256SUMS`, and pushes `packaging/aur/*`
 (four packages) to the AUR with the new version and checksums.
 It also builds `packaging/homebrew/katana-tui.rb` and pushes it to the
-[Homebrew tap](https://github.com/ArkadyBuryakov/homebrew-tap), and builds `packaging/snap/snapcraft.yaml`
-for amd64 and arm64 and uploads it to the [Snap Store](https://snapcraft.io/katana-desktop).
-Tags like `v1.2.0-rc1` make a prerelease, skip the AUR and the tap, and put the snap on the `candidate` channel. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
+[Homebrew tap](https://github.com/ArkadyBuryakov/homebrew-tap), and builds the two snaps in `packaging/snap/*`
+for amd64 and arm64 and uploads them to the Snap Store.
+Tags like `v1.2.0-rc1` make a prerelease, skip the AUR and the tap, and put the snaps on the `candidate` channel. The AUR step needs an `AUR_SSH_PRIVATE_KEY`
 repository secret: the private half of an SSH key added to the AUR account that maintains the packages.
 The tap step needs `TAP_SSH_PRIVATE_KEY`: the private half of a deploy key with write access to the tap.
-The snap step needs `SNAPCRAFT_STORE_CREDENTIALS`, from `snapcraft export-login --snaps=katana-desktop
+The snap step needs `SNAPCRAFT_STORE_CREDENTIALS`, from `snapcraft export-login --snaps=katana-desktop,katana-tui
 --acls package_access,package_push,package_update,package_release snap-creds.txt` (it expires after a year).
 If only one of these steps fails, fix it and rerun just that: `gh workflow run publish_aur.yml -f version=1.2.3`,
 `gh workflow run publish_homebrew.yml -f version=1.2.3` or `gh workflow run publish_snap.yml -f version=1.2.3`.

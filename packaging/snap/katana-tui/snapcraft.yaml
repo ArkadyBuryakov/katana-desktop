@@ -1,0 +1,42 @@
+# The katana-tui snap, built from the release tag. version and source-tag are filled in by
+# .github/workflows/publish_snap.yml on each release.
+name: katana-tui
+title: Katana TUI
+version: '0.1.0'
+summary: Unofficial terminal client for Nonograms Katana user puzzles
+description: |
+  Solve the user-created puzzles of Nonograms Katana in a terminal, synced with your Katana account:
+  the puzzle list with its filters, boards in progress, and the same helpers as Katana Desktop.
+
+  This is an independent fan project. It is not made, endorsed or supported by the developers of
+  Nonograms Katana. "Nonograms Katana" is their trademark, and the puzzles belong to their authors.
+license: MIT
+website: https://github.com/ArkadyBuryakov/katana-desktop
+source-code: https://github.com/ArkadyBuryakov/katana-desktop
+issues: https://github.com/ArkadyBuryakov/katana-desktop/issues
+contact: arkady@buryakov.pro
+icon: web/icon.png
+base: core24
+grade: stable
+confinement: strict
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  katana-tui:
+    command: usr/bin/katana-tui
+    plugs: [network]
+
+parts:
+  katana-tui:
+    # rustup by hand, as in the katana-desktop snap
+    plugin: nil
+    source: https://github.com/ArkadyBuryakov/katana-desktop.git
+    source-tag: v0.1.0
+    build-packages: [curl, gcc, make]
+    override-build: |
+      curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+      export PATH="$HOME/.cargo/bin:$PATH"
+      cargo build --locked --release --no-default-features --features tui --bin katana-tui
+      make install-tui PREFIX=/usr DESTDIR="$CRAFT_PART_INSTALL"
