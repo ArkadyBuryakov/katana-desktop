@@ -1,0 +1,19 @@
+# The katana-tui .flatpak bundle attached to each GitHub release (not a Flathub manifest: it packages
+# the prebuilt binary). .github/workflows/release.yml unpacks the release's katana-tui linux tar.gz
+# into stage/ at the repository root and builds this with flatpak-builder.
+# A terminal program: no menu entry, run it with `flatpak run pro.buryakov.KatanaTui`.
+id: pro.buryakov.KatanaTui
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: katana-tui
+finish-args:
+  - --share=network
+modules:
+  - name: katana-tui
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../../stage
+    build-commands:
+      - install -Dm755 usr/bin/katana-tui -t /app/bin

@@ -44,6 +44,9 @@ Download a package for your system from [Releases](https://github.com/ArkadyBury
 - **Fedora:** `katana-tui-<version>-1.x86_64.rpm`.
 - **Any Linux with snap:** `sudo snap install katana-tui` from the [Snap Store](https://snapcraft.io/katana-tui).
   A snap keeps its data to itself, so it doesn't share the login and boards with the desktop app.
+- **Any Linux with Flatpak:** `katana-tui-<version>-linux-<arch>.flatpak`, install with
+  `flatpak install --user ./katana-tui-*.flatpak` and run with `flatpak run pro.buryakov.KatanaTui`.
+  Like the desktop one it isn't on Flathub and keeps its data to itself, in `~/.var/app/pro.buryakov.KatanaTui`.
 - **Other Linux:** `katana-tui-<version>-linux-<arch>.tar.gz` holds a `usr/` tree.
 - **Windows:** `katana-tui-<version>-windows-x86_64.zip` holds `katana-tui.exe`; run it from Windows Terminal.
 - **macOS or Linux with Homebrew:** `brew install arkadyburyakov/tap/katana-tui` (built from source).
@@ -198,7 +201,7 @@ See `src/protocol.rs`. `cargo test` covers the format. With `KATANA_SAMPLES=<dir
 ## Development
 
 To release: `make release patch` (or `minor`, `major`, `rc` for a release candidate, or an exact `x.y.z` / `x.y.z-rcN`), then push the tag it prints. `.github/workflows/release.yml` then builds
-the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm, and a .flatpak of the desktop app), Windows and macOS packages of both `katana-desktop` and
+the Linux (x86_64 and aarch64 tar.gz, .deb, .rpm, .flatpak), Windows and macOS packages of both `katana-desktop` and
 `katana-tui`, publishes a GitHub release with them and their `SHA256SUMS`, and pushes `packaging/aur/*`
 (four packages) to the AUR with the new version and checksums.
 It also builds `packaging/homebrew/katana-tui.rb` and pushes it to the

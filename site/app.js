@@ -3,7 +3,7 @@
 const REPO = 'ArkadyBuryakov/katana-desktop';
 // The version written into index.html: its links keep working after later releases,
 // and are moved to the latest one when GitHub answers.
-const BAKED = '1.1.5';
+const BAKED = '1.1.6';
 const SYSTEMS = {
   windows: 'Windows', macos: 'macOS', arch: 'Arch Linux',
   debian: 'Debian / Ubuntu', fedora: 'Fedora', linux: 'Linux', sandboxed: 'Linux',

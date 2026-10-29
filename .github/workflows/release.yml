@@ -102,36 +102,40 @@ jobs:
         with: { name: macos, path: 'dist/*' }
 
   flatpak:
-    # a .flatpak bundle of the binary the linux job built; installing it pulls the GNOME runtime from Flathub
+    # .flatpak bundles of the binaries the linux job built; installing one pulls its runtime from Flathub
     needs: linux
     strategy:
       matrix:
-        include:
-          - { runner: ubuntu-24.04, arch: x86_64 }
-          - { runner: ubuntu-24.04-arm, arch: aarch64 }
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        app:
+          - { pkg: katana-desktop, id: pro.buryakov.KatanaDesktop, image: gnome-51 }
+          - { pkg: katana-tui, id: pro.buryakov.KatanaTui, image: freedesktop-26.08 }
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      image: ghcr.io/flathub-infra/flatpak-github-actions:${{ matrix.app.image }}
       options: --privileged
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
-        with: { name: 'linux-${{ matrix.arch }}', path: linux }
       - id: unpack
         run: |
+          case "$(uname -m)" in aarch64) arch=aarch64 ;; *) arch=x86_64 ;; esac
           v="${GITHUB_REF_NAME#v}"
-          mkdir stage
-          tar -xzf "linux/katana-desktop-$v-linux-${{ matrix.arch }}.tar.gz" -C stage
-          echo "bundle=katana-desktop-$v-linux-${{ matrix.arch }}.flatpak" >> "$GITHUB_OUTPUT"
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
+          echo "tarball=${{ matrix.app.pkg }}-$v-linux-$arch.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "bundle=${{ matrix.app.pkg }}-$v-linux-$arch.flatpak" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v5
+        with: { name: 'linux-${{ steps.unpack.outputs.arch }}', path: linux }
+      - run: mkdir stage && tar -xzf "linux/${{ steps.unpack.outputs.tarball }}" -C stage
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          manifest-path: packaging/flatpak/pro.buryakov.KatanaDesktop.yml
+          manifest-path: packaging/flatpak/${{ matrix.app.id }}.yml
           bundle: ${{ steps.unpack.outputs.bundle }}
-          arch: ${{ matrix.arch }}
+          arch: ${{ steps.unpack.outputs.arch }}
           branch: stable
+          cache-key: flatpak-builder-${{ matrix.app.pkg }}-${{ steps.unpack.outputs.arch }}-${{ github.sha }}
           upload-artifact: false
       - uses: actions/upload-artifact@v5
-        with: { name: 'flatpak-${{ matrix.arch }}', path: '${{ steps.unpack.outputs.bundle }}' }
+        with: { name: 'flatpak-${{ matrix.app.pkg }}-${{ steps.unpack.outputs.arch }}', path: '${{ steps.unpack.outputs.bundle }}' }
 
   release:
     needs: [linux, flatpak, windows, macos]
